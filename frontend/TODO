@@ -1,0 +1,86 @@
+backend/
+├── app/
+│   ├── main.py              # Entry point
+│   ├── core/                # Core Config
+│   │   ├── config.py        # Env vars
+│   │   ├── security.py      # JWT & Password Hashing
+│   │   └── exceptions.py    # Custom Error Handlers
+│   ├── db/
+│   │   ├── session.py       # DB Connection
+│   │   └── base.py          # Import all models here for Alembic
+│   ├── models/              # DATABASE TABLES (SQLAlchemy)
+│   │   ├── user.py          # Users, Role, Admin
+│   │   ├── vendor.py        # Vendor, Store, Staff (From ERD)
+│   │   ├── product.py       # Product, Category, Inventory
+│   │   ├── service.py       # Service, TimeSlots, Appointments (From ERD)
+│   │   └── order.py         # Order, OrderItem, Transaction
+│   ├── schemas/             # PYDANTIC MODELS (Data Validation)
+│   │   ├── auth.py          # Login/Register payloads
+│   │   ├── vendor.py
+│   │   ├── product.py
+│   │   └── order.py
+│   ├── api/                 # API ROUTERS
+│   │   ├── deps.py          # Dependencies (get_current_user, get_db)
+│   │   └── v1/              # Versioning (Important for SE)
+│   │       ├── api.py       # Router collector
+│   │       ├── endpoints/
+│   │       │   ├── auth.py
+│   │       │   ├── users.py
+│   │       │   ├── vendors.py       # Vendor CRUD
+│   │       │   ├── products.py      # Product CRUD
+│   │       │   ├── services.py      # Appointment Logic (Complex!)
+│   │       │   ├── orders.py        # Checkout Logic
+│   │       │   └── analytics.py     # Admin/Vendor Charts
+│   └── services/            # BUSINESS LOGIC (Heavy Lifting)
+│       ├── order_service.py # "Checkout" logic goes here, not in API
+│       ├── payment_service.py # Mock Stripe logic
+│       └── report_service.py # Generates the charts
+└── tests/                   # Pytest tests
+    ├── conftest.py          # Fixtures (test_client, test_db)
+    ├── test_auth.py
+    ├── test_users.py
+    ├── test_vendors.py
+    ├── test_products.py
+    ├── test_services.py
+    └── test_orders.py
+
+
+
+
+
+frontend/
+├── src/
+│   ├── assets/              # Static images, global SVGs
+│   ├── config/              # Environment variables, constants
+│   ├── context/             # Global State (AuthContext, ThemeContext)
+│   ├── hooks/               # Generic hooks (useWindowSize, useLocalStorage)
+│   ├── layouts/             # THE LAYOUT SHELLS
+│   │   ├── MainLayout.jsx       # For public pages (Home, Login)
+│   │   ├── StudentLayout.jsx    # Has Bottom Nav (Mobile focus)
+│   │   ├── VendorLayout.jsx     # Has Sidebar (Desktop focus)
+│   │   └── AdminLayout.jsx      # Has Admin Sidebar & Topbar
+│   ├── lib/                 # Third-party setups (axios instance, utils)
+│   │   └── api.js           # Central Axios interceptors
+│   ├── pages/               # ROUTING ENTRY POINTS
+│   │   ├── auth/            # Login, Register, Forgot Password
+│   │   ├── public/          # Landing Page, About Us
+│   │   ├── student/         # Student Dashboard Pages
+│   │   ├── vendor/          # Vendor Dashboard Pages
+│   │   └── admin/           # Admin Dashboard Pages
+│   ├── features/            # THE CORE LOGIC (The "Wide" part)
+│   │   ├── auth/            # Components: LoginForm, RegisterForm, Guard
+│   │   ├── marketplace/     # (Student View)
+│   │   │   ├── components/  # ProductCard, SearchBar, CategoryFilter
+│   │   │   └── hooks/       # useProducts, useCart
+│   │   ├── vendor-dashboard/# (Vendor View)
+│   │   │   ├── components/  # RevenueChart, OrderTable, AddProductModal
+│   │   │   └── hooks/       # useVendorStats, useInventory
+│   │   ├── admin-console/   # (Admin View)
+│   │   │   ├── components/  # UserTable, VerificationQueue
+│   │   └── orders/          # Shared Order Logic
+│   │       ├── components/  # OrderStatusBadge, ReceiptModal
+│   ├── components/          # SHARED UI (Buttons, Inputs, Modals)
+│   │   ├── ui/              # Atomic components
+│   │   └── shared/          # Complex shared components
+│   ├── App.jsx
+│   └── main.jsx
