@@ -48,6 +48,7 @@ backend/
 
 
 
+
 frontend/
 ├── src/
 │   ├── assets/              # Static images, global SVGs
