@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.api import api_router
 
@@ -10,6 +11,11 @@ from app.db.session import engine
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="AIU Campus Microstore API")
+
+from fastapi.security import OAuth2PasswordBearer
+reusable_oauth2 = OAuth2PasswordBearer(
+    tokenUrl=f"/api/v1/login/access-token"
+)
 
 # Include the collector router
 app.include_router(api_router, prefix="/api/v1")

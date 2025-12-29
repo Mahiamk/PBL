@@ -27,3 +27,8 @@ def create_user(
     
     # 2. Create the user using our service logic
     return user_service.create_user(db, user_in=user_in)
+@router.get("/me")
+def read_user_me(
+    current_user: User = Depends(deps.get_current_user) # This triggers the padlock!
+):
+    return current_user
