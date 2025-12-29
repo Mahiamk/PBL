@@ -2,6 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.api import api_router
 
+#for local testing only
+from app.db.base import Base  # Import your combined models
+from app.db.session import engine
+
+# This line creates the tables in test.db if they don't exist
+Base.metadata.create_all(bind=engine)
+
 app = FastAPI(title="AIU Campus Microstore API")
 
 # Include the collector router
