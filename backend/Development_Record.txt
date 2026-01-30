@@ -1,0 +1,111 @@
+# Backend Development Record
+
+## Backend Logic and Database Functionality Updates
+
+### 1. Vendor Registration & Automated Store Provisioning
+- **File Modified:** `backend/app/api/v1/auth.py`
+- **Feature:** Enhanced the vendor registration flow (`register_vendor` endpoint).
+- **Logic:** 
+  - Upon successful registration, the system now automatically creates a generic `Store` entry for the new vendor.
+  - A `Vendor` profile is also created and linked to the user account.
+  - Default status for new stores/vendors is set to `active`.
+- **Benefit:** Streamlines onboarding by eliminating the need for separate manual store creation steps.
+
+### 2. Vendor Soft-Deletion & Resource Management
+- **File Modified:** `backend/app/api/v1/admin.py`
+- **Feature:** Smart "Soft Delete" logic for Vendor accounts (`delete_user` endpoint).
+- **Logic:**
+  - Instead of hard-deleting the user from the database, the logic now handles the cascading effects on associated resources.
+  - **Products:** All products belonging to the deleted vendor are updated to status `unavailable`.
+  - **Services:** All services offered by the vendor are updated to status `unavailable`.
+  - **Orders:** Any pending orders associated with the vendor are marked as `unavailable` to alert customers/admins.
+  - **User Account:** The vendor's user record is updated to a "deleted" state to preserve historical data.
+- **Benefit:** Ensures data integrity is maintained. Prevents customers from ordering items from non-existent vendors without losing historical transaction data.
+
+### 3. Vendor Shop Banner Upload
+- **Files Modified:** `backend/app/api/v1/auth.py`, `backend/app/schemas/schemas.py`, `backend/app/models/models.py` (Schema Update)
+- **Feature:** Custom Shop Banner during Registration.
+- **Logic:**
+  - **Database:** Added `IMAGE_URL` column to the `STORE` table.
+  - **API:** Updated `register_vendor` endpoint to accept `multipart/form-data` requests, allowing image file uploads.
+  - **Storage:** Banner images are saved securely to the `uploads/` directory with unique filenames (UUID).
+  - **Fallback:** If no image is uploaded, the system continues to use the default category-specific visual.
+- **Benefit:** Allows vendors to personalize their storefronts immediately upon registration, improving the user experience in the Shops Hub.
+
+### 4. Real-time Messaging System (WebSocket)
+- **File Modified:** `backend/app/api/v1/messages.py`
+- **Feature:** Real-time messaging between Customers and Vendors.
+- **Logic:**
+  - **Communication:** Implemented `WebSocket` endpoint `/ws` with authentication via query parameters.
+  - **Connection Manager:** Tracks active user connections to route messages instantly.
+  - **Persistence:** All messages are saved to the database (`MESSAGE` table) before broadcasting.
+  - **History & Conversations:** Added endpoints to fetch chat history with a specific user (`/{user_id}`) and list active conversations (`/conversations`).
+  - **Hybrid Support:** Updated the REST API `send_message` to also broadcast to WebSocket clients, ensuring consistency across different client implementations.
+- **Benefit:** Enables instant communication, critical for coordinating orders, services, and support inquiries.
+
+### 5. Advanced Messaging Features (Attachments & Voice Notes)
+- **Files Modified:** `backend/app/api/v1/messages.py`, `backend/app/models/models.py`
+- **Feature:** Support for multimedia chat messages.
+- **Logic:**
+  - **Database:** Updated `MESSAGE` table schema:
+    - Added `message_type` (VARCHAR) to distinguish between 'text', 'image', 'file', 'audio'.
+    - Added `attachment_url` (TEXT) to store file paths.
+    - Altered `content` column to be NULLABLE (allowing attachment-only messages).
+  - **API:**
+    - Created `POST /api/messages/upload` endpoint for handling file uploads (`multipart/form-data`).
+    - Handled file storage in `uploads/chat/` directory.
+    - Updated WebSocket message handler to parse and store `attachment_url` and `message_type`.
+  - **Stability:** Added refined try-except blocks with database rollback mechanisms in the WebSocket loop to prevent connection drops on database query failures.
+- **Benefit:** Enables rich communication features like sending photos of products/issues and recording voice instructions directly in the chat.
+
+### 6. Message Reply Functionality
+- **Files Modified:** `backend/app/models/models.py`, `backend/app/schemas/schemas.py`, `backend/app/api/v1/messages.py`
+- **Feature:** Ability to reply to specific messages.
+- **Logic:**
+  - **Database:** Added `reply_to_id` (ForeignKey to self) to `MESSAGE` table.
+  - **API:** Updated WebSocket and REST endpoints to accept and persist `reply_to_id`.
+  - **Frontend:** 
+    - Added "Swipe/Hover to Reply" UI pattern.
+    - Implemented Reply Context rendering (showing the original message above the reply).
+    - Added "Replying to..." preview state above the input bar.
+- **Benefit:** Improves conversation clarity, especially in busy chats or when discussing multiple topics.
+
+- **Notification Infrastructure**:
+  - **Database Schema**:
+    - Created `NOTIFICATION` table with `user_id`, `type`, `title`, `message`, `related_id`, `is_read` columns.
+    - Migrated `MESSAGE` table:
+      - Added `reply_to_id` for threaded replies (Self-referential FK).
+      - Modified `content` column to be nullable (supporting attachment-only messages).
+  - **API Development**:
+    - Created `api/v1/notifications.py` router with endpoints:
+      - `GET /` (list user notifications).
+      - `PUT /{id}/read` (mark specific as read).
+      - `PUT /read-all` (mark all as read).
+  - **Event Triggers**:
+    - Integrated notification generation hooks into `orders.py` (New Order events) and `appointments.py` (New Appointment events).
+    - Added notification generation in `messages.py`: Automatically creates a notification for the recipient when a WebSocket message is successfully processed and saved.
+
+### 8. System Logging & Admin Stats
+- **Files Modified:** `backend/app/models/models.py`, `backend/app/api/v1/auth.py`, `backend/app/api/v1/admin.py`
+- **Feature:** Tracking login events for security visibility.
+- **Logic:**
+  - **Database:** Created `system_logs` table (Model: `SystemLog`) to store actions, timestamps, and associated user IDs (`customer_id`, `vendor_id`).
+  - **Auth:** Modified `login_for_access_token` to verify credentials and insert a log entry for "Login Success" or "Login Failure".
+  - **Admin:** Added `/admin/system-logs/stats` endpoint to aggregate these logs, returning total success/failure counts for the past week.
+- **Benefit:** Provides administrators with security auditing capabilities and visibility into platform usage/health.
+
+### 9. Appointment & Service Normalization
+- **Files Modified:** `backend/app/models/models.py`, `backend/app/api/v1/appointments.py`, `backend/convert_appts_norm.py`
+- **Feature:** Database Normalization for Scalability.
+- **Logic:**
+  - **Schema:** Normalized `Appointment` table and split `Service` logic.
+    - Created `TIME_SLOT` table (Slot_ID, Start/End Time, Service_ID).
+    - Created `SERVICE_PROVIDER` table (Provider_ID, Name, Contact, Store_ID).
+    - Updated `APPOINTMENT` table to reference `SLOT_ID` and `PROVIDER_ID` instead of storing raw strings/dates.
+  - **Migration:** Created `backend/convert_appts_norm.py` to migrate existing appointments to the new structure automatically.
+  - **Compatibility:** Maintained backward compatibility in API by using Python `@property` decorators to map the new relational data back to the expected `barber_name`, `booking_date`, etc. fields.
+- **Benefit:** Allows for more complex scheduling (time slot management) and better resource tracking (specific service providers) in the future without breaking the current app.
+
+    
+
+
