@@ -1,14 +1,15 @@
+import axios from 'axios';
+
+const API = axios.create({
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',   // Connects to FastAPI
+    withCredentials: true,
+});
+
 // Newsletter
 export const subscribeNewsletter = async (email) => {
   const response = await API.post('/api/newsletter/subscribe', { email });
   return response.data;
 };
-import axios from 'axios';
-
-const API = axios.create({
-    baseURL: 'http://localhost:8000',  // Connects to FastAPI
-    withCredentials: true,
-});
 
 // Add a request interceptor to include the token
 API.interceptors.request.use((config) => {
