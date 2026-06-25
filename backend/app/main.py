@@ -1,9 +1,16 @@
 import os
+import sys
+from pathlib import Path
+
+BACKEND_ROOT = Path(__file__).resolve().parent.parent
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.api.v1 import auth, users, products, orders, stores, appointments, reviews, messages, admin, services, notifications, newsletter
+from app.core.config import settings
 from app.db.database import engine, Base
 from app.models import models
 
@@ -18,13 +25,7 @@ uploads_dir = os.path.join(os.path.dirname(__file__), "..", "uploads")
 app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 # CORS Configuration
-origins = [
-    "http://localhost:5173", # Vite default port
-    "http://localhost:5174",
-    "http://localhost:3000",
-    "https://aiu-microstore.vercel.app",
-    "https://www.aiu-microstore.vercel.app",
-]
+origins = settings.CORS_ORIGINS_LIST
 
 app.add_middleware(
     CORSMiddleware,
