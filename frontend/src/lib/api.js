@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',   // Connects to FastAPI
+    baseURL: import.meta.env.VITE_API_URL || '/api',   // Connects to FastAPI via Vercel routing
     withCredentials: true,
 });
 

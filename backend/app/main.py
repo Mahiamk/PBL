@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -10,14 +12,18 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="PBL Microservice Platform")
 
+uploads_dir = os.path.join(os.path.dirname(__file__), "..", "uploads")
+
 # Mount static files
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 # CORS Configuration
 origins = [
     "http://localhost:5173", # Vite default port
     "http://localhost:5174",
     "http://localhost:3000",
+    "https://aiu-microstore.vercel.app",
+    "https://www.aiu-microstore.vercel.app",
 ]
 
 app.add_middleware(
