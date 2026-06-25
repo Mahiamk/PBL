@@ -1,0 +1,16 @@
+# Backend Development Record
+
+### January 25, 2026
+- **Notification Infrastructure**:
+  - **Database Schema**:
+    - Created `NOTIFICATION` table with `user_id`, `type`, `title`, `message`, `related_id`, `is_read` columns.
+    - Migrated `MESSAGE` table:
+      - Added `reply_to_id` for threaded replies (Self-referential FK).
+      - Modified `content` column to be nullable (supporting attachment-only messages).
+  - **API Development**:
+    - Created `api/v1/notifications.py` router with endpoints:
+      - `GET /` (list user notifications).
+      - `PUT /{id}/read` (mark specific as read).
+      - `PUT /read-all` (mark all as read).
+  - **Event Triggers**:
+    - Integrated notification generation hooks into `orders.py` (New Order events) and `appointments.py` (New Appointment events).

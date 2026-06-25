@@ -1,10 +1,10 @@
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # Credentials from docker-compose.yml
 # Format: mysql+pymysql://user:password@hostname:port/database_name
-SQLALCHEMY_DATABASE_URL = "mysql+pymysql://user:password@db:3306/aiu_microstore"
+SQLALCHEMY_DATABASE_URL = "mysql+pymysql://user:password@db:3306/PBL"
 
 # Create the SQLAlchemy engine
 # "pool_pre_ping=True" helps handle connection drops common in Docker environments

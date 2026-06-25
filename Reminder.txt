@@ -1,0 +1,5 @@
+Email: admin@pbl.com
+Password: adminpassword
+mysql: root1234
+
+start local database: brew services start mysql
