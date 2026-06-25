@@ -21,6 +21,7 @@
     "jspdf": "^4.0.0",
     "lucide-react": "^0.562.0",
     "react": "^19.2.0",
+    "react-day-picker": "^10.0.1",
     "react-dom": "^19.2.0",
     "react-router-dom": "^6.30.3",
     "recharts": "^3.6.0",
