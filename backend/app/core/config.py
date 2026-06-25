@@ -28,6 +28,18 @@ class Settings(BaseSettings):
     BACKEND_PUBLIC_URL: str = "http://localhost:8000"
 
     @property
+    def effective_upload_dir(self) -> str:
+        if os.getenv("UPLOAD_DIR"):
+            return os.getenv("UPLOAD_DIR")
+        if os.getenv("VERCEL") or os.getenv("NOW_REGION"):
+            return "/tmp/uploads"
+        return self.UPLOAD_DIR
+
+    @property
+    def UPLOAD_DIR_EFFECTIVE(self) -> str:
+        return self.effective_upload_dir
+
+    @property
     def DATABASE_URL(self) -> str:
         env_database_url = os.getenv("DATABASE_URL")
         if env_database_url:

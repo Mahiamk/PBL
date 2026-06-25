@@ -16,7 +16,7 @@ from app.api.deps import get_current_user
 from app.core.config import settings
 
 router = APIRouter()
-UPLOAD_DIR = Path("uploads/chat")
+UPLOAD_DIR = Path(settings.effective_upload_dir) / "chat"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # --- WebSocket Manager ---

@@ -10,6 +10,7 @@ import uuid
 from pathlib import Path
 
 from app.schemas.auth import Token, UserCreate, UserResponse, VendorRegister
+from app.core.config import settings
 from app.core.security import create_access_token, verify_password, get_password_hash
 from app.db.database import get_db
 from app.models import models
@@ -17,10 +18,7 @@ from app.models.models import User, UserRole, UserStatus, VendorApplication, Sto
 
 router = APIRouter()
 
-UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "uploads"))
-if not str(UPLOAD_DIR).startswith("/tmp") and not str(UPLOAD_DIR).startswith("/var"):
-    UPLOAD_DIR = Path("uploads")
-
+UPLOAD_DIR = Path(settings.effective_upload_dir)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 

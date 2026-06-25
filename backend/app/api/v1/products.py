@@ -7,12 +7,15 @@ import uuid
 from app.schemas.schemas import (
     Product, ProductCreate, ProductUpdate, Category, CategoryCreate, AttributeCreate, VariantItemCreate, ProductImageBase
 )
+from app.core.config import settings
 from app.db.database import get_db
 from app.models import models
 from app.api.deps import get_current_user # Import get_current_user
 from app.models.models import User, UserRole # Import User models
 
 router = APIRouter()
+UPLOAD_DIR = settings.effective_upload_dir
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # --- Category Operations ---
 
@@ -55,17 +58,17 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
 @router.post("/upload")
 async def upload_image(file: UploadFile = File(...)):
     # Ensure uploads directory exists
-    os.makedirs("uploads", exist_ok=True)
-    
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+
     file_extension = file.filename.split(".")[-1]
     file_name = f"{uuid.uuid4()}.{file_extension}"
-    file_path = f"uploads/{file_name}"
-    
+    file_path = f"{UPLOAD_DIR}/{file_name}"
+
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-        
-    # Return the full URL
-    return {"url": f"http://localhost:8000/uploads/{file_name}"}
+
+    public_base_url = settings.BACKEND_PUBLIC_URL.rstrip("/")
+    return {"url": f"{public_base_url}/uploads/{file_name}"}
 
 @router.get("/", response_model=List[Product])
 def get_products(store_id: int = None, db: Session = Depends(get_db)):
