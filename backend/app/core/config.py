@@ -1,10 +1,13 @@
+import os
+
 from pydantic_settings import BaseSettings
+
 
 class Settings(BaseSettings):
     # API Settings
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "AIU Microstore"
-    
+
     # Security Settings
     SECRET_KEY: str = "qYFA_vsC9EzcFsrTChWt-mrjamSBNkH578lHHVrOWKo"
     ALGORITHM: str = "HS256"
@@ -17,16 +20,32 @@ class Settings(BaseSettings):
     MYSQL_PORT: str = "3306"
     MYSQL_DB: str = "aiu_microstore"
 
-    # We use this local file to avoid the 'db' connection error
-    SQLALCHEMY_DATABASE_URL: str = "sqlite:///./test.db"
+    SQLALCHEMY_DATABASE_URL: str | None = None
+
+    # Runtime Settings
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:5174,http://localhost:3000,https://aiu-microstore.vercel.app,https://www.aiu-microstore.vercel.app"
+    UPLOAD_DIR: str = "uploads"
+    BACKEND_PUBLIC_URL: str = "http://localhost:8000"
 
     @property
     def DATABASE_URL(self) -> str:
-        # If we are testing locally and want to use SQLite:
-        if self.SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
-            return self.SQLALCHEMY_DATABASE_URL
-        
-        # Otherwise, use MySQL (for Docker/Production)
-        return f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_SERVER}:{self.MYSQL_PORT}/{self.MYSQL_DB}"
+        env_database_url = os.getenv("DATABASE_URL")
+        if env_database_url:
+            return self._normalize_database_url(env_database_url)
+
+        if self.SQLALCHEMY_DATABASE_URL:
+            return self._normalize_database_url(self.SQLALCHEMY_DATABASE_URL)
+
+        return "sqlite:///./test.db"
+
+    def _normalize_database_url(self, database_url: str) -> str:
+        if database_url.startswith("mysql://"):
+            return database_url.replace("mysql://", "mysql+mysqlconnector://", 1)
+        return database_url
+
+    @property
+    def CORS_ORIGINS_LIST(self) -> list[str]:
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
 
 settings = Settings()
