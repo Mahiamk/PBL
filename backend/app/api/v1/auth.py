@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
@@ -15,8 +16,12 @@ from app.models import models
 from app.models.models import User, UserRole, UserStatus, VendorApplication, Store, Vendor, SystemLog
 
 router = APIRouter()
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
+
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "uploads"))
+if not str(UPLOAD_DIR).startswith("/tmp") and not str(UPLOAD_DIR).startswith("/var"):
+    UPLOAD_DIR = Path("uploads")
+
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @router.post("/register", response_model=UserResponse)
