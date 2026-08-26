@@ -170,7 +170,7 @@ const AppointmentConfirmation = ({ appointmentDetails, onClose }) => {
                   <AlertCircle className="w-3 h-3 mr-1" /> Cancellation Policy
                 </h4>
                 <p style={{ color: '#991b1b' }} className="text-sm">
-                  Please notify us at least <strong>24 hours</strong> in advance to avoid a <strong>$20</strong> cancellation fee.
+                  Please notify us at least <strong>24 hours</strong> in advance to avoid a <strong>RM 20</strong> cancellation fee.
                 </p>
               </div>
             </div>
@@ -179,7 +179,7 @@ const AppointmentConfirmation = ({ appointmentDetails, onClose }) => {
             <div style={{ borderColor: '#e5e7eb' }} className="text-center border-t pt-8 mt-8">
               <p style={{ color: '#14532d' }} className="text-xl font-serif italic mb-2">See you soon!</p>
               <p style={{ color: '#4b5563' }} className="font-bold">Tailor Shop Team</p>
-              <p style={{ color: '#6b7280' }} className="text-sm mt-1">+1 (555) 123-4567 | www.pblstore.com</p>
+              <p style={{ color: '#6b7280' }} className="text-sm mt-1">+60 4-123 4567 | aiu.edu.my</p>
             </div>
           </div>
         </div>
