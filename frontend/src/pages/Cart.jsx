@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useOrder } from '../context/OrderContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Trash2, Plus, Minus, CreditCard, Banknote } from 'lucide-react';
+import { getImageUrl } from '../lib/api';
 import thermosYellow from '../assets/thermos-yellow.jpg';
 import thermosBlack from '../assets/thermos-black.jpg';
 import vaseGreen from '../assets/vase-green.jpg';
@@ -246,9 +247,10 @@ const Cart = () => {
 
           <ul className="divide-y divide-gray-200">
             {cart.map((item) => {
-                const image = item.image_url || (item.product_id === 6 
+                const rawImage = item.image_url || (item.product_id === 6 
                     ? (item.selectedOption === 'Fade' ? barberFade : barberCut)
                     : (imageMap[item.product_id] || bowlWhite));
+                const image = getImageUrl(rawImage, bowlWhite);
 
                 return (
                   <li key={item.cartId} className="py-6 sm:py-10">
@@ -263,10 +265,14 @@ const Cart = () => {
                         <div className="flex-1 grid grid-cols-1 sm:grid-cols-12 gap-x-6">
                             {/* Product Column */}
                             <div className="sm:col-span-6 flex">
-                                <div className="flex-shrink-0 w-24 h-24 border border-gray-200 rounded-md overflow-hidden">
+                                <div className="flex-shrink-0 w-24 h-24 border border-gray-200 rounded-md overflow-hidden bg-[#f5f5f7]">
                                     <img
                                         src={image}
                                         alt={item.product_name}
+                                        onError={(e) => {
+                                            e.target.onerror = null;
+                                            e.target.src = bowlWhite;
+                                        }}
                                         className="w-full h-full object-center object-cover"
                                     />
                                 </div>
@@ -279,7 +285,7 @@ const Cart = () => {
                                             {item.product_id === 6 ? 'Style' : 'Color'}: {item.selectedOption || 'Default'}
                                         </p>
                                         <p className="mt-1 text-sm font-medium text-gray-900 sm:hidden">
-                                            ${item.product_price} x {item.quantity}
+                                            RM {Number(item.product_price).toFixed(2)} x {item.quantity}
                                         </p>
                                     </div>
                                     <div className="mt-2 flex items-center space-x-4">
@@ -290,14 +296,14 @@ const Cart = () => {
                                                 console.log("Buy Now clicked for:", item);
                                                 handleBuyNow(item);
                                             }}
-                                            className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 z-10 relative"
+                                            className="inline-flex items-center px-3.5 py-1.5 border border-transparent text-xs font-semibold rounded-full text-white bg-[#1d1d1f] hover:bg-[#333336] focus:outline-none z-10 relative shadow-xs"
                                         >
                                             Buy Now
                                         </button>
                                         <div className="h-4 w-px bg-gray-300"></div>
                                         <button 
                                             onClick={() => removeFromCart(item.cartId)}
-                                            className="text-sm font-medium text-red-600 hover:text-red-500"
+                                            className="text-xs font-medium text-rose-600 hover:text-rose-500"
                                         >
                                             Remove
                                         </button>
@@ -327,7 +333,7 @@ const Cart = () => {
                             {/* Total Column */}
                             <div className="sm:col-span-3 flex items-center justify-end mt-4 sm:mt-0">
                                 <p className="text-base font-medium text-gray-900">
-                                    ${(item.product_price * item.quantity).toFixed(2)}
+                                    RM {(Number(item.product_price) * Number(item.quantity)).toFixed(2)}
                                 </p>
                             </div>
                         </div>
@@ -344,7 +350,7 @@ const Cart = () => {
           <div className="mt-6 space-y-4">
             <div className="flex items-center justify-between pt-4">
               <div className="text-base font-medium text-gray-900">Sub total</div>
-              <div className="text-base font-medium text-gray-900">${selectedTotal.toFixed(2)}</div>
+              <div className="text-base font-medium text-gray-900">RM {selectedTotal.toFixed(2)}</div>
             </div>
             
             <div className="pt-4">
@@ -397,9 +403,9 @@ const Cart = () => {
 
             <div className="flex items-center justify-between border-t border-gray-200 pt-4">
               <div className="text-base font-medium text-gray-900">Total</div>
-              <div className="text-base font-medium text-gray-900">${selectedTotal.toFixed(2)}</div>
+              <div className="text-base font-medium text-gray-900">RM {selectedTotal.toFixed(2)}</div>
             </div>
-            <p className="text-xs text-gray-500 mt-1">(Inclusive of tax $0.00)</p>
+            <p className="text-xs text-gray-500 mt-1">(Inclusive of tax RM 0.00)</p>
           </div>
 
           <div className="mt-6">
