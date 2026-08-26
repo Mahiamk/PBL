@@ -1,45 +1,67 @@
 import React, { useEffect, useState } from 'react';
-import { fetchVendorDashboard } from '../../../lib/api';
+import { fetchVendorDashboard, fetchStoreAppointments, fetchServices } from '../../../lib/api';
 import { useAuth } from '../../../context/AuthContext';
-import Sidebar from '../dashboard/Sidebar';
+import Sidebar from './Sidebar';
 import TopBar from '../dashboard/TopBar';
 import { useSearchParams } from 'react-router-dom';
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell
-} from 'recharts';
-import ProductManager from '../../../components/vendor/management/ProductManager';
-import ProductNewForm from '../../../components/vendor/management/ProductNewForm';
-import CategoryManager from '../../../components/vendor/management/CategoryManager';
-import OrderManager from '../../../components/vendor/management/OrderManager';
+import AppointmentManager from '../tailor/AppointmentManager';
+import ServiceManager from '../../../components/vendor/management/ServiceManager';
 import CustomerManager from '../../../components/vendor/management/CustomerManager';
 import MessageManager from '../../../components/vendor/management/MessageManager';
+import D3AreaTrendChart from '../../../components/charts/D3AreaTrendChart';
+import D3DonutBreakdownChart from '../../../components/charts/D3DonutBreakdownChart';
+import D3StatSparkline from '../../../components/charts/D3StatSparkline';
+import { computeRealRevenueTrend, computeRealVolumeTrend, computeRealServiceBreakdown } from '../../../utils/dashboardMetrics';
+import { HandHeart, CalendarCheck, Users, CurrencyCircleDollar, CheckCircle, Clock } from '@phosphor-icons/react';
 
 const MassageDashboard = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'dashboard');
   const [data, setData] = useState(null);
+  const [services, setServices] = useState([]);
+  const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => localStorage.getItem('vendor_sidebar_collapsed') === 'true');
+
+  const toggleCollapse = () => {
+    setIsCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('vendor_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
   const selectedId = searchParams.get('id');
 
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab) {
-        setActiveTab(tab);
+      setActiveTab(tab);
     }
   }, [searchParams]);
 
-  const loadData = (isRefresh = false) => {
+  const loadData = async (isRefresh = false) => {
     if (user && user.userId) {
       if (!isRefresh) setLoading(true);
-      fetchVendorDashboard(user.userId)
-        .then(setData)
-        .catch(console.error)
-        .finally(() => {
-          if (!isRefresh) setLoading(false);
-        });
+      try {
+        const dashboardData = await fetchVendorDashboard(user.userId);
+        setData(dashboardData);
+        
+        const storeId = dashboardData?.store_info?.store_id || 6;
+        if (storeId) {
+          const [apptsData, servicesData] = await Promise.all([
+            fetchStoreAppointments(storeId).catch(() => []),
+            fetchServices(storeId).catch(() => [])
+          ]);
+          setAppointments(apptsData || []);
+          setServices(servicesData || []);
+        }
+      } catch (error) {
+        console.error('Failed to load wellness dashboard data:', error);
+      } finally {
+        if (!isRefresh) setLoading(false);
+      }
     }
   };
 
@@ -50,163 +72,265 @@ const MassageDashboard = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#8e6e7d]"></div>
       </div>
     );
   }
 
   if (!data) return null;
 
-  // Process data for charts
-  const totalRevenue = data.recent_orders.reduce((acc, order) => acc + order.total_amount, 0);
-  const totalOrders = data.recent_orders.length;
-  const completedOrders = data.recent_orders.filter(o => o.status === 'Completed').length;
-  const cancelledOrders = data.recent_orders.filter(o => o.status === 'Cancelled').length;
-  
-  // Mock data for the line chart (since we have limited real data)
-  const salesData = [
-    { name: 'Jul 31', value: 0 },
-    { name: 'Aug 31', value: 0 },
-    { name: 'Sep 30', value: 0 },
-    { name: 'Oct 31', value: 0 },
-    { name: 'Nov 30', value: 0 },
-    { name: 'Dec 31', value: totalOrders } // Just putting current orders here for visibility
-  ];
+  const storeId = data?.store_info?.store_id || 6;
+  const storeName = data?.store_info?.store_name || "AIU Wellness & Cupping Therapy";
 
-  // Data for Pie Chart
-  const pieData = [
-    { name: 'Completed', value: completedOrders || 1, color: '#A7F3D0' }, // Green-200
-    { name: 'Pending', value: totalOrders - completedOrders - cancelledOrders, color: '#BAE6FD' }, // Blue-200
-    { name: 'Cancelled', value: cancelledOrders, color: '#FECACA' } // Red-200
-  ];
-  
-  // If no orders, show empty pie
-  const emptyPieData = [{ name: 'No Orders', value: 1, color: '#E5E7EB' }];
-  const activePieData = totalOrders > 0 ? pieData : emptyPieData;
+  // Calculate real service analytics
+  const totalAppointments = appointments.length;
+  const completedAppointments = appointments.filter(a => a.status === 'Completed' || a.status === 'completed').length;
+  const totalEstimatedRevenue = appointments
+    .filter(a => a.status !== 'Cancelled' && a.status !== 'cancelled')
+    .reduce((sum, a) => sum + (Number(a.service_price || a.price || 0)), 0);
+
+  const realRevenueTrend = computeRealRevenueTrend(appointments, 7);
+  const realVolumeTrend = computeRealVolumeTrend(appointments, 'booking_date', 7);
+  const realServiceBreakdown = (() => {
+    const breakdown = computeRealServiceBreakdown(appointments);
+    if (breakdown.length > 0) return breakdown;
+    if (services.length > 0) {
+      return services.map(s => ({ label: s.service_name, value: 1 }));
+    }
+    return [{ label: 'Therapy Services', value: 1 }];
+  })();
 
   const renderContent = () => {
-    switch(activeTab) {
-      case 'products': return <ProductManager />;
-      case 'new-product': return <ProductNewForm storeId={data?.store_info?.store_id} onSuccess={() => setActiveTab('products')} onCancel={() => setActiveTab('products')} />;
-      case 'categories': return <CategoryManager />;
-      case 'orders': return <OrderManager orders={data.recent_orders} onOrderUpdate={() => loadData(true)} selectedId={selectedId} />;
-      case 'customers': return <CustomerManager customers={data?.customers || []} />;
-      case 'messages': return <MessageManager selectedId={selectedId} />;
-      default: return (
-        <>
-          <h1 className="text-2xl font-bold text-gray-900 mb-8">Massage Service Dashboard</h1>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Sale Statistics Chart */}
-            <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+    switch (activeTab) {
+      case 'appointments':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-3xl border border-[#e8e8ed] shadow-xs">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <div>
+                  <h2 className="text-lg font-bold text-[#1d1d1f]">Therapy & Cupping Appointments</h2>
+                  <p className="text-xs text-[#6e6e73]">Manage client bookings, confirmations, and session completions.</p>
+                </div>
+                <div className="inline-flex items-center space-x-2 text-xs font-semibold px-3.5 py-1.5 rounded-full bg-[#f5edf0] text-[#594951] border border-[#e6dadf]">
+                  <CalendarCheck size={16} weight="duotone" className="text-[#8e6e7d]" />
+                  <span>{totalAppointments} Total Sessions</span>
+                </div>
+              </div>
+              <AppointmentManager 
+                storeId={storeId} 
+                appointments={appointments} 
+                selectedId={selectedId} 
+              />
+            </div>
+          </div>
+        );
+
+      case 'services':
+        return (
+          <div className="space-y-6">
+            <ServiceManager storeId={storeId} />
+          </div>
+        );
+
+      case 'customers':
+        return (
+          <div className="space-y-6">
+            <CustomerManager customers={data?.customers || []} />
+          </div>
+        );
+
+      case 'messages':
+        return (
+          <div className="space-y-6">
+            <MessageManager selectedId={selectedId} />
+          </div>
+        );
+
+      case 'dashboard':
+      default:
+        return (
+          <div className="space-y-8">
+            {/* KPI Sparkline Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="bg-white p-5 rounded-3xl shadow-xs border border-[#e8e8ed] flex items-center justify-between">
+                <div>
+                  <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider block mb-1">
+                    Therapy Bookings
+                  </span>
+                  <p className="text-2xl font-black text-[#1d1d1f]">{totalAppointments}</p>
+                  <span className="text-[11px] font-semibold text-emerald-600">
+                    {completedAppointments} Sessions Completed
+                  </span>
+                </div>
+                <D3StatSparkline data={realVolumeTrend.map(d => d.value)} color="#1d1d1f" width={75} height={28} />
+              </div>
+              
+              <div className="bg-white p-5 rounded-3xl shadow-xs border border-[#e8e8ed] flex items-center justify-between">
+                <div>
+                  <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider block mb-1">
+                    Estimated Revenue
+                  </span>
+                  <p className="text-2xl font-black text-[#1d1d1f]">RM {totalEstimatedRevenue.toFixed(2)}</p>
+                  <span className="text-[11px] font-semibold text-emerald-600">Booking Pipeline</span>
+                </div>
+                <D3StatSparkline data={realRevenueTrend.map(d => d.total)} color="#8e6e7d" width={75} height={28} />
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl shadow-xs border border-[#e8e8ed] flex items-center justify-between">
+                <div>
+                  <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider block mb-1">
+                    Therapy Menu
+                  </span>
+                  <p className="text-2xl font-black text-[#1d1d1f]">
+                    {services.length}
+                  </p>
+                  <span className="text-[11px] font-semibold text-emerald-600">Active Services</span>
+                </div>
+                <D3StatSparkline data={[0, 0, 0, 0, 0, 0, services.length]} color="#594951" width={75} height={28} />
+              </div>
+            </div>
+
+            {/* D3 Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-7">
+                <D3AreaTrendChart
+                  data={realRevenueTrend}
+                  xKey="date"
+                  yKey="total"
+                  title="Therapy Appointments Volume"
+                  subtitle="7-day revenue trend from client bookings (RM)"
+                  height={280}
+                  color="#8e6e7d"
+                />
+              </div>
+              
+              <div className="lg:col-span-5">
+                <D3DonutBreakdownChart
+                  data={realServiceBreakdown}
+                  labelKey="label"
+                  valueKey="value"
+                  title="Therapy Distribution"
+                  subtitle="Service demand & catalog breakdown"
+                  height={280}
+                />
+              </div>
+            </div>
+
+            {/* Active Therapy Services Table */}
+            <div className="bg-white p-6 rounded-3xl border border-[#e8e8ed] shadow-xs">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-bold text-gray-900">Sale Statistics</h2>
-                <div className="flex space-x-4 text-sm text-blue-500">
-                  <button className="hover:text-blue-700">Daily</button>
-                  <button className="hover:text-blue-700">Weekly</button>
-                  <button className="hover:text-blue-700">Monthly</button>
+                <div>
+                  <h3 className="text-base font-bold text-[#1d1d1f]">Active Therapy Services & Rates</h3>
+                  <p className="text-xs text-[#6e6e73]">Cupping (Hijama), recovery massage, and stress-relief treatments.</p>
                 </div>
+                <button 
+                  onClick={() => setActiveTab('services')} 
+                  className="text-xs font-bold text-[#8e6e7d] hover:text-[#1d1d1f] transition-colors"
+                >
+                  Manage Services &rarr;
+                </button>
               </div>
               
-              <div className="h-80 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={salesData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="value" stroke="#10B981" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-            
-            {/* Lifetime Sales */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900 mb-6">Lifetime Sales</h2>
-              
-              <div className="space-y-4 mb-8">
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 rounded-full bg-blue-200"></div>
-                  <span className="text-gray-600 text-sm">{totalOrders} orders</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 rounded-full bg-blue-200"></div>
-                  <span className="text-gray-600 text-sm">${totalRevenue.toFixed(2)} lifetime sale</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 rounded-full bg-green-200"></div>
-                  <span className="text-gray-600 text-sm">{(completedOrders / (totalOrders || 1) * 100).toFixed(0)}% of orders completed</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 rounded-full bg-red-200"></div>
-                  <span className="text-gray-600 text-sm">{(cancelledOrders / (totalOrders || 1) * 100).toFixed(0)}% of orders cancelled</span>
-                </div>
-              </div>
-              
-              <div className="h-64 w-full flex items-center justify-center relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={activePieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={0}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {activePieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                {/* Labels on sides like in image */}
-                <div className="absolute left-0 top-1/2 transform -translate-y-1/2 text-blue-300 font-bold ml-4">100</div>
-                <div className="absolute right-0 top-1/2 transform -translate-y-1/2 text-red-300 font-bold mr-4">0</div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Best Sellers Section */}
-          <div className="mt-8 bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-bold text-gray-900">Best Sellers</h2>
-              <button className="text-sm text-blue-500 hover:text-blue-700">All products</button>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                  <tr>
-                    <th className="px-6 py-3 font-medium">Product Name</th>
-                    <th className="px-6 py-3 font-medium">Price</th>
-                    <th className="px-6 py-3 font-medium">Sold</th>
-                    <th className="px-6 py-3 font-medium">Revenue</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {data.products.slice(0, 5).map((product) => (
-                    <tr key={product.product_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{product.product_name}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500">${product.product_price}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500">0</td> {/* Mock sold count */}
-                      <td className="px-6 py-4 text-sm text-gray-900">$0.00</td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-[#fbfbfd] text-[#86868b] uppercase text-[10px] font-bold border-b border-[#e8e8ed]">
+                    <tr>
+                      <th className="p-3.5">Service Name</th>
+                      <th className="p-3.5">Description</th>
+                      <th className="p-3.5">Session Rate</th>
+                      <th className="p-3.5 text-right">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-[#f0eaed]">
+                    {services.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="p-8 text-center text-gray-500">
+                          No services found. Click "Manage Services" to add your therapy menu.
+                        </td>
+                      </tr>
+                    ) : (
+                      services.map((service) => (
+                        <tr key={service.service_id} className="hover:bg-[#fbfbfd]">
+                          <td className="p-3.5 font-bold text-[#1d1d1f] flex items-center space-x-2">
+                            <HandHeart size={16} weight="duotone" className="text-[#8e6e7d] shrink-0" />
+                            <span>{service.service_name}</span>
+                          </td>
+                          <td className="p-3.5 text-[#6e6e73] max-w-xs truncate">{service.service_desc || 'Campus therapy session'}</td>
+                          <td className="p-3.5 font-bold text-[#1d1d1f]">RM {Number(service.service_price).toFixed(2)}</td>
+                          <td className="p-3.5 text-right">
+                            <span className="inline-flex items-center space-x-1 text-emerald-600 font-semibold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              <span>Available</span>
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Recent Appointments Overview */}
+            <div className="bg-white p-6 rounded-3xl border border-[#e8e8ed] shadow-xs">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-base font-bold text-[#1d1d1f]">Recent Appointment Schedule</h3>
+                  <p className="text-xs text-[#6e6e73]">Recent student and staff bookings for therapy sessions.</p>
+                </div>
+                <button 
+                  onClick={() => setActiveTab('appointments')} 
+                  className="text-xs font-bold text-[#8e6e7d] hover:text-[#1d1d1f] transition-colors"
+                >
+                  View All Appointments &rarr;
+                </button>
+              </div>
+
+              {appointments.length === 0 ? (
+                <div className="text-center py-10 bg-[#fbfbfd] rounded-2xl border border-dashed border-[#e8e8ed]">
+                  <CalendarCheck size={32} weight="duotone" className="mx-auto text-[#8e6e7d] mb-2" />
+                  <p className="text-sm font-bold text-[#1d1d1f]">No appointments scheduled yet</p>
+                  <p className="text-xs text-[#86868b] max-w-sm mx-auto mt-1">
+                    When campus students and faculty book therapy or cupping sessions, they will appear here in real-time.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-[#fbfbfd] text-[#86868b] uppercase text-[10px] font-bold border-b border-[#e8e8ed]">
+                      <tr>
+                        <th className="p-3.5">Client</th>
+                        <th className="p-3.5">Service</th>
+                        <th className="p-3.5">Booking Date & Time</th>
+                        <th className="p-3.5 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#f0eaed]">
+                      {appointments.slice(0, 5).map((appt) => (
+                        <tr key={appt.appointment_id} className="hover:bg-[#fbfbfd]">
+                          <td className="p-3.5 font-bold text-[#1d1d1f]">{appt.customer_name || 'Client'}</td>
+                          <td className="p-3.5 text-[#594951] font-medium">{appt.service_name}</td>
+                          <td className="p-3.5 text-[#6e6e73]">{appt.booking_date} {appt.booking_time ? `at ${appt.booking_time}` : ''}</td>
+                          <td className="p-3.5 text-right">
+                            <span className="inline-flex items-center space-x-1 text-emerald-600 font-semibold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              <span>{appt.status || 'Pending'}</span>
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
-        </>
-      );
+        );
     }
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 font-sans">
+    <div className="flex h-screen overflow-hidden bg-[#f5f5f7] font-sans">
       <Sidebar 
         activeTab={activeTab} 
         onTabChange={(tab) => {
@@ -215,26 +339,16 @@ const MassageDashboard = () => {
         }}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
-        shopName={data?.store_info?.store_name}
+        shopName={storeName}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={toggleCollapse}
       />
       
-      <div className="flex-1 md:ml-72 flex flex-col transition-all duration-300 relative h-full">
+      <div className={`flex-1 ${isCollapsed ? 'md:ml-20' : 'md:ml-64'} flex flex-col transition-all duration-300 relative h-full`}>
         <TopBar onMenuClick={() => setIsSidebarOpen(true)} />
         
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 md:p-6 scrollbar-thin scrollbar-thumb-gray-200">
-          {activeTab === 'dashboard' && (
-            <div className="space-y-6">
-              {/* Existing dashboard content */}
-            </div>
-          )}
-
-          {activeTab === 'messages' && <MessageManager />}
-
-          {activeTab === 'add-product' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              {/* Add product form content */}
-            </div>
-          )}
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-[#f5f5f7] p-4 md:p-6 scrollbar-thin scrollbar-thumb-gray-200">
+          {renderContent()}
         </main>
       </div>
     </div>
