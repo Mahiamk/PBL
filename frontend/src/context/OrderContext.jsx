@@ -52,6 +52,9 @@ export const OrderProvider = ({ children }) => {
             total: newOrder.total_amount,
             status: newOrder.status,
             items: newOrder.items,
+            vendor_user_id: newOrder.vendor_user_id,
+            store_name: newOrder.store_name,
+            store_id: newOrder.store_id,
             paymentMethod: newOrder.payment_method
         }));
         
