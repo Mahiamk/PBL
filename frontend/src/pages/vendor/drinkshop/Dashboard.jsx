@@ -17,6 +17,10 @@ import FeaturedProductManager from '../../../components/vendor/management/Featur
 import OrderManager from '../../../components/vendor/management/OrderManager';
 import CustomerManager from '../../../components/vendor/management/CustomerManager';
 import MessageManager from '../../../components/vendor/management/MessageManager';
+import D3AreaTrendChart from '../../../components/charts/D3AreaTrendChart';
+import D3DonutBreakdownChart from '../../../components/charts/D3DonutBreakdownChart';
+import D3StatSparkline from '../../../components/charts/D3StatSparkline';
+import { computeRealRevenueTrend, computeRealVolumeTrend, computeRealProductBreakdown } from '../../../utils/dashboardMetrics';
 
 const DrinkShopDashboard = () => {
   const { user } = useAuth();
@@ -25,6 +29,15 @@ const DrinkShopDashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => localStorage.getItem('vendor_sidebar_collapsed') === 'true');
+
+  const toggleCollapse = () => {
+    setIsCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('vendor_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
   const selectedId = searchParams.get('id');
 
   useEffect(() => {
@@ -105,108 +118,115 @@ const DrinkShopDashboard = () => {
       );
       case 'customers': return <CustomerManager customers={data?.customers || []} />;
       case 'messages': return <MessageManager selectedId={selectedId} />;
-      default: return (
-        <>
-          <h1 className="text-2xl font-bold text-gray-900 mb-8">Drink Shop Dashboard</h1>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Sale Statistics Chart */}
-            <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-bold text-gray-900">Sale Statistics</h2>
-                <div className="flex space-x-4 text-sm text-blue-500">
-                  <button className="hover:text-blue-700">Daily</button>
-                  <button className="hover:text-blue-700">Weekly</button>
-                  <button className="hover:text-blue-700">Monthly</button>
+      case 'dashboard':
+      default: {
+        const realRevenueTrend = computeRealRevenueTrend(data?.recent_orders || [], 7);
+        const realVolumeTrend = computeRealVolumeTrend(data?.recent_orders || [], 'order_date', 7);
+        const realProductBreakdown = (() => {
+          const breakdown = computeRealProductBreakdown(data?.products || []);
+          return breakdown.length > 0 ? breakdown : [{ label: 'Menu Catalog', value: 1 }];
+        })();
+
+        return (
+          <>
+            {/* KPI Sparkline Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+              <div className="bg-white p-5 rounded-3xl shadow-xs border border-[#e8e8ed] flex items-center justify-between">
+                <div>
+                  <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider block mb-1">
+                    Beverage Orders
+                  </span>
+                  <p className="text-2xl font-black text-[#1d1d1f]">{totalOrders}</p>
+                  <span className="text-[11px] font-semibold text-emerald-600">Delivered & Pickup</span>
                 </div>
+                <D3StatSparkline data={realVolumeTrend.map(d => d.value)} color="#1d1d1f" width={75} height={28} />
               </div>
               
-              <div className="h-80 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={salesData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="value" stroke="#10B981" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+              <div className="bg-white p-5 rounded-3xl shadow-xs border border-[#e8e8ed] flex items-center justify-between">
+                <div>
+                  <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider block mb-1">
+                    Cafe Revenue
+                  </span>
+                  <p className="text-2xl font-black text-[#1d1d1f]">RM {totalRevenue.toFixed(2)}</p>
+                  <span className="text-[11px] font-semibold text-emerald-600">Total Sales</span>
+                </div>
+                <D3StatSparkline data={realRevenueTrend.map(d => d.total)} color="#8e6e7d" width={75} height={28} />
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl shadow-xs border border-[#e8e8ed] flex items-center justify-between">
+                <div>
+                  <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider block mb-1">
+                    Active Menu Items
+                  </span>
+                  <p className="text-2xl font-black text-[#1d1d1f]">
+                    {(data?.products || []).length}
+                  </p>
+                  <span className="text-[11px] font-semibold text-emerald-600">Drink & Snack Items</span>
+                </div>
+                <D3StatSparkline data={[0, 0, 0, 0, 0, 0, (data?.products || []).length]} color="#594951" width={75} height={28} />
               </div>
             </div>
-            
-            {/* Lifetime Sales */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900 mb-6">Lifetime Sales</h2>
-              
-              <div className="space-y-4 mb-8">
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 rounded-full bg-blue-200"></div>
-                  <span className="text-gray-600 text-sm">{totalOrders} orders</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 rounded-full bg-blue-200"></div>
-                  <span className="text-gray-600 text-sm">${totalRevenue.toFixed(2)} lifetime sale</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 rounded-full bg-green-200"></div>
-                  <span className="text-gray-600 text-sm">{(completedOrders / (totalOrders || 1) * 100).toFixed(0)}% of orders completed</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 rounded-full bg-red-200"></div>
-                  <span className="text-gray-600 text-sm">{(cancelledOrders / (totalOrders || 1) * 100).toFixed(0)}% of orders cancelled</span>
-                </div>
+
+            {/* D3 Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+              <div className="lg:col-span-7">
+                <D3AreaTrendChart
+                  data={realRevenueTrend}
+                  xKey="date"
+                  yKey="total"
+                  title="Cafe Daily Volume"
+                  subtitle="7-day sales breakdown (RM)"
+                  height={280}
+                  color="#8e6e7d"
+                />
               </div>
               
-              <div className="h-64 w-full flex items-center justify-center relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={activePieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={0}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {activePieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                {/* Labels on sides like in image */}
-                <div className="absolute left-0 top-1/2 transform -translate-y-1/2 text-blue-300 font-bold ml-4">100</div>
-                <div className="absolute right-0 top-1/2 transform -translate-y-1/2 text-red-300 font-bold mr-4">0</div>
+              <div className="lg:col-span-5">
+                <D3DonutBreakdownChart
+                  data={realProductBreakdown}
+                  labelKey="label"
+                  valueKey="value"
+                  title="Menu Categories"
+                  subtitle="Beverage & Pastry catalog breakdown"
+                  height={280}
+                />
               </div>
             </div>
-          </div>
-          
-          {/* Best Sellers Section */}
-          <div className="mt-8 bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+
+          {/* Catalog Menu Table */}
+          <div className="bg-white p-6 rounded-3xl border border-[#e8e8ed] shadow-xs">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-bold text-gray-900">Best Sellers</h2>
-              <button className="text-sm text-blue-500 hover:text-blue-700">All products</button>
+              <div>
+                <h3 className="text-base font-bold text-[#1d1d1f]">Fresh Drinks & Bakery Menu</h3>
+                <p className="text-xs text-[#6e6e73]">Current active offerings and barista inventory.</p>
+              </div>
+              <button onClick={() => setActiveTab('products')} className="text-xs font-semibold text-[#8e6e7d] hover:text-[#1d1d1f]">
+                Manage Menu Items &rarr;
+              </button>
             </div>
             
             <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-[#fbfbfd] text-[#86868b] uppercase text-[10px] font-bold border-b border-[#e8e8ed]">
                   <tr>
-                    <th className="px-6 py-3 font-medium">Product Name</th>
-                    <th className="px-6 py-3 font-medium">Price</th>
-                    <th className="px-6 py-3 font-medium">Sold</th>
-                    <th className="px-6 py-3 font-medium">Revenue</th>
+                    <th className="p-3.5">Beverage / Food</th>
+                    <th className="p-3.5">Price</th>
+                    <th className="p-3.5">Stock</th>
+                    <th className="p-3.5 text-right">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-[#f0eaed]">
                   {data.products.slice(0, 5).map((product) => (
-                    <tr key={product.product_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{product.product_name}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500">${product.product_price}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500">0</td> {/* Mock sold count */}
-                      <td className="px-6 py-4 text-sm text-gray-900">$0.00</td>
+                    <tr key={product.product_id} className="hover:bg-[#fbfbfd]">
+                      <td className="p-3.5 font-bold text-[#1d1d1f]">{product.product_name}</td>
+                      <td className="p-3.5 text-[#6e6e73]">RM {Number(product.product_price).toFixed(2)}</td>
+                      <td className="p-3.5 text-[#1d1d1f] font-semibold">{product.stock_quantity || 50} cups/units</td>
+                      <td className="p-3.5 text-right">
+                        <span className="inline-flex items-center space-x-1 text-emerald-600 font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          <span>Serving</span>
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -217,6 +237,7 @@ const DrinkShopDashboard = () => {
       );
     }
   };
+};
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans">
@@ -229,9 +250,11 @@ const DrinkShopDashboard = () => {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         shopName={data?.store_info?.store_name}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={toggleCollapse}
       />
       
-      <div className="flex-1 md:ml-72 flex flex-col transition-all duration-300 relative h-full">
+      <div className={`flex-1 ${isCollapsed ? 'md:ml-20' : 'md:ml-64'} flex flex-col transition-all duration-300 relative h-full`}>
         <TopBar onMenuClick={() => setIsSidebarOpen(true)} />
         
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 md:p-6 scrollbar-thin scrollbar-thumb-gray-200">
