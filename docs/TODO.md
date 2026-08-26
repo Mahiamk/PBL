@@ -7,7 +7,6 @@ An admin checks/verify the delivery of an order--whether recieved or not
 Number of active user per day/ per month/ per year
 Number of orders per day
 
-
 module one: Inventory table.
 module two: transaction table , payment table(but it can be outsource(external vendors example: TNG)),order history, status.
 module 3: system logs in user  table.
