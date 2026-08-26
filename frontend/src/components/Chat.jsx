@@ -1,12 +1,42 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { fetchConversations, fetchChatHistory, sendMessage, markMessagesAsRead, uploadChatAttachment } from '../lib/api';
+import { fetchConversations, fetchChatHistory, sendMessage, markMessagesAsRead, uploadChatAttachment, getBackendBaseUrl } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { Send, User, MessageSquare, Check, CheckCheck, Paperclip, Mic, X, FileText, Play, Pause, Reply } from 'lucide-react';
+import {
+  PaperPlaneRight,
+  User,
+  ChatCircleDots,
+  Check,
+  Checks,
+  Paperclip,
+  Microphone,
+  X,
+  FileText,
+  Play,
+  Pause,
+  ArrowBendUpLeft,
+  Circle,
+  CaretLeft,
+  MagnifyingGlass,
+  Storefront,
+  Sparkle
+} from '@phosphor-icons/react';
+
+const CAMPUS_MERCHANTS = [
+  { id: 3, full_name: 'AIU Tech & Repair Hub', role: 'Tech & Laptop Repair', store_type: 'tech', initial: 'TH' },
+  { id: 4, full_name: 'AIU Campus Barber Shop', role: 'Hair & Grooming Studio', store_type: 'barber', initial: 'BB' },
+  { id: 5, full_name: 'AIU Tailor & Alterations', role: 'Bespoke Tailor & Alterations', store_type: 'tailor', initial: 'TL' },
+  { id: 6, full_name: 'AIU Flask & Bottle Shop', role: 'Drinkware & Insulated Tumblers', store_type: 'bottles', initial: 'FB' },
+  { id: 7, full_name: 'AIU Campus Cafe & Brews', role: 'Cafe & Barista Services', store_type: 'cafe', initial: 'CF' },
+  { id: 8, full_name: 'AIU Wellness & Cupping Therapy', role: 'Hijama & Physical Therapy', store_type: 'wellness', initial: 'WL' },
+  { id: 9, full_name: 'AIU Official Apparel & Store', role: 'Collegiate Apparel & Merch', store_type: 'clothing', initial: 'AP' },
+];
 
 const Chat = ({ preSelectedUser = null }) => {
     const { user } = useAuth();
     const [conversations, setConversations] = useState([]);
     const [selectedUser, setSelectedUser] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeTab, setActiveTab] = useState('all'); // 'all', 'merchants'
     const [attachment, setAttachment] = useState(null); // { url, type, name, file }
     const [replyingTo, setReplyingTo] = useState(null); // Message object being replied to
     const [isRecording, setIsRecording] = useState(false);
@@ -20,7 +50,8 @@ const Chat = ({ preSelectedUser = null }) => {
     const getImageUrl = (path) => {
         if (!path) return null;
         if (path.startsWith('http')) return path;
-        return `http://localhost:8000${path}`;
+        const baseUrl = getBackendBaseUrl();
+        return `${baseUrl}${path}`;
     };
 
     const [messages, setMessages] = useState([]);
@@ -33,22 +64,38 @@ const Chat = ({ preSelectedUser = null }) => {
     useEffect(() => {
         if(user) {
             fetchConversations().then(data => {
-                setConversations(data);
-                // If we have a pre-selected user object
-                if (preSelectedUser) {
-                    // Check if they are already in the list
-                    const existing = data.find(u => u.id === preSelectedUser.id);
-                    if (existing) {
-                        setSelectedUser(existing);
-                    } else {
-                        // New conversation! Set them as selected manually
-                        // Ensure the object has { id, full_name, role }
-                        setSelectedUser(preSelectedUser);
+                setConversations(prev => {
+                    // Merge and deduplicate with any optimistic active chat
+                    const merged = [...data];
+                    if (preSelectedUser && !merged.some(u => u.id === preSelectedUser.id)) {
+                        merged.unshift(preSelectedUser);
                     }
+                    return merged;
+                });
+                
+                if (preSelectedUser) {
+                    const existing = data.find(u => u.id === preSelectedUser.id);
+                    setSelectedUser(existing || preSelectedUser);
+                    setActiveTab('all');
                 }
             }).catch(console.error);
         }
-    }, [user, preSelectedUser]);
+    }, [user]);
+
+    // Handle updates to preSelectedUser when prop changes
+    useEffect(() => {
+        if (preSelectedUser) {
+            setSelectedUser(preSelectedUser);
+            setActiveTab('all');
+            setConversations(prev => {
+                const exists = prev.some(c => c.id === preSelectedUser.id);
+                if (exists) {
+                    return [preSelectedUser, ...prev.filter(c => c.id !== preSelectedUser.id)];
+                }
+                return [preSelectedUser, ...prev];
+            });
+        }
+    }, [preSelectedUser]);
 
     // WebSocket Connection
     useEffect(() => {
@@ -57,14 +104,13 @@ const Chat = ({ preSelectedUser = null }) => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
 
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        // Adjust port: Frontend is 5173, Backend is 8000
-        const wsUrl = `ws://localhost:8000/api/messages/ws?token=${user.token}`;
+        const backendBaseUrl = getBackendBaseUrl();
+        const wsUrl = `${protocol}://${backendBaseUrl.replace(/^https?:\/\//, '')}/api/messages/ws?token=${user.token}`;
         
         const socket = new WebSocket(wsUrl);
         wsRef.current = socket;
 
         socket.onopen = () => {
-             console.log("WebSocket Connected");
              setIsConnected(true);
         };
 
@@ -123,6 +169,19 @@ const Chat = ({ preSelectedUser = null }) => {
                          markMessagesAsRead(currentSelected.id);
                      }
                  }
+             }
+
+             // Instantly update conversations list if incoming message from another user
+             if (data.sender_id && data.sender_id !== user?.userId) {
+                 setConversations(prev => {
+                     const exists = prev.find(c => c.id === data.sender_id);
+                     if (exists) {
+                         return [exists, ...prev.filter(c => c.id !== data.sender_id)];
+                     }
+                     const merchant = CAMPUS_MERCHANTS.find(m => m.id === data.sender_id);
+                     const newConv = merchant || { id: data.sender_id, full_name: `User #${data.sender_id}`, role: 'vendor' };
+                     return [newConv, ...prev];
+                 });
              }
         };
     }, [selectedUser, isConnected]); // Re-attach when selectedUser changes or connection is re-established
@@ -291,6 +350,15 @@ const Chat = ({ preSelectedUser = null }) => {
              reply_to_id: replyingTo ? replyingTo.id : null
         };
 
+        // Immediately update conversations so it stays at the top of active chats
+        setConversations(prev => {
+            const exists = prev.some(c => c.id === selectedUser.id);
+            if (exists) {
+                return [selectedUser, ...prev.filter(c => c.id !== selectedUser.id)];
+            }
+            return [selectedUser, ...prev];
+        });
+
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
              wsRef.current.send(JSON.stringify(messagePayload));
         } else {
@@ -302,296 +370,460 @@ const Chat = ({ preSelectedUser = null }) => {
         setReplyingTo(null);
     };
     
+    const filteredConversations = conversations.filter(c => {
+        const name = (c.full_name || c.email || '').toLowerCase();
+        const role = (c.role || '').toLowerCase();
+        return name.includes(searchQuery.toLowerCase()) || role.includes(searchQuery.toLowerCase());
+    });
+
+    const filteredMerchants = CAMPUS_MERCHANTS.filter(m => {
+        const name = m.full_name.toLowerCase();
+        const role = m.role.toLowerCase();
+        return name.includes(searchQuery.toLowerCase()) || role.includes(searchQuery.toLowerCase());
+    });
+
+    const handleSelectMerchant = (merchant) => {
+        const targetObj = {
+            id: merchant.id,
+            full_name: merchant.full_name,
+            role: merchant.role || 'vendor',
+            profile_image: merchant.profile_image || null
+        };
+
+        const existing = conversations.find(u => u.id === merchant.id);
+        const userToSelect = existing || targetObj;
+
+        setSelectedUser(userToSelect);
+        setActiveTab('all');
+
+        // Instantly add to active conversations list without waiting for page refresh
+        setConversations(prev => {
+            const exists = prev.some(c => c.id === userToSelect.id);
+            if (exists) {
+                return [userToSelect, ...prev.filter(c => c.id !== userToSelect.id)];
+            }
+            return [userToSelect, ...prev];
+        });
+    };
+
     return (
         <>
-            <div className="flex h-[600px] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-fade-in">
-                {/* Sidebar List */}
-            <div className="w-1/3 border-r border-gray-100 bg-gray-50 flex flex-col">
-                <div className="p-4 border-b border-gray-100 font-bold text-gray-900 flex items-center bg-white">
-                    <MessageSquare className="w-5 h-5 mr-2 text-primary" /> Chats
-                </div>
-                <div className="overflow-y-auto flex-1">
-                    {conversations.length === 0 ? (
-                        <p className="text-gray-500 text-sm p-8 text-center">No active conversations</p>
-                    ) : (
-                        conversations.map(c => (
-                            <div 
-                                key={c.id} 
-                                onClick={() => setSelectedUser(c)}
-                                className={`p-4 cursor-pointer hover:bg-white border-b border-gray-50 transition-colors flex items-center ${selectedUser?.id === c.id ? 'bg-white border-l-4 border-l-primary shadow-sm' : ''}`}
-                            >
-                                <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center mr-3 text-gray-500 overflow-hidden">
-                                   {c.profile_image ? (
-                                        <img src={getImageUrl(c.profile_image)} alt="User" className="w-full h-full object-cover" />
-                                   ) : (
-                                        <User className="w-5 h-5" />
-                                   )}
+            <div className="flex h-full w-full bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-[#e8e8ed] overflow-hidden">
+                {/* Sidebar List - responsive: hidden on mobile if user selected */}
+                <div className={`w-full md:w-84 lg:w-96 border-r border-[#e8e8ed] bg-[#fbfbfd] flex flex-col h-full overflow-hidden shrink-0 ${selectedUser ? 'hidden md:flex' : 'flex'}`}>
+                    {/* Header */}
+                    <div className="p-4 border-b border-[#e8e8ed] bg-white space-y-3 shrink-0">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2.5">
+                                <div className="p-2 rounded-2xl bg-[#1d1d1f] text-white">
+                                    <ChatCircleDots size={20} weight="fill" />
                                 </div>
-                                <div className="overflow-hidden">
-                                    <p className="font-semibold text-gray-900 truncate">{c.full_name || c.email}</p>
-                                    <p className="text-xs text-gray-500 capitalize">{c.role}</p>
+                                <div>
+                                    <h3 className="text-sm font-extrabold text-[#1d1d1f] tracking-tight">Direct Messages</h3>
+                                    <p className="text-[11px] text-[#86868b]">AIU Campus Communications</p>
                                 </div>
                             </div>
-                        ))
+                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 ${
+                                isConnected ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' : 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                            }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                                {isConnected ? 'Live' : 'Connecting'}
+                            </span>
+                        </div>
+
+                        {/* Search Bar */}
+                        <div className="relative">
+                            <MagnifyingGlass size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#86868b]" />
+                            <input
+                                type="text"
+                                placeholder="Search chats or campus stores..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-9 pr-8 py-2 bg-[#f5f5f7] border border-[#e8e8ed] rounded-xl text-xs text-[#1d1d1f] placeholder:text-[#86868b] focus:outline-none focus:bg-white focus:border-[#1d1d1f] transition-all"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#86868b] hover:text-[#1d1d1f]"
+                                >
+                                    <X size={13} weight="bold" />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Segmented Filter Control */}
+                        <div className="flex bg-[#f5f5f7] p-1 rounded-xl gap-1">
+                            <button
+                                onClick={() => setActiveTab('all')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                                    activeTab === 'all'
+                                        ? 'bg-white text-[#1d1d1f] shadow-xs'
+                                        : 'text-[#6e6e73] hover:text-[#1d1d1f]'
+                                }`}
+                            >
+                                Active Chats {conversations.length > 0 && `(${conversations.length})`}
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('merchants')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                                    activeTab === 'merchants'
+                                        ? 'bg-white text-[#1d1d1f] shadow-xs'
+                                        : 'text-[#6e6e73] hover:text-[#1d1d1f]'
+                                }`}
+                            >
+                                <Storefront size={14} weight="duotone" />
+                                Shops ({CAMPUS_MERCHANTS.length})
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Conversations / Merchant List */}
+                    <div className="overflow-y-auto flex-1 p-2.5 space-y-1">
+                        {activeTab === 'all' ? (
+                            filteredConversations.length === 0 ? (
+                                <div className="p-6 text-center">
+                                    <div className="w-12 h-12 rounded-2xl bg-[#f5edf0] text-[#6b535d] flex items-center justify-center mx-auto mb-3">
+                                        <ChatCircleDots size={24} weight="duotone" />
+                                    </div>
+                                    <p className="text-xs font-bold text-[#1d1d1f] mb-1">No Active Chats</p>
+                                    <p className="text-[11px] text-[#86868b] mb-4">Start an instant inquiry with any campus shop.</p>
+                                    <button
+                                        onClick={() => setActiveTab('merchants')}
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#1d1d1f] text-white text-xs font-semibold rounded-xl hover:bg-[#333336] transition-all shadow-xs"
+                                    >
+                                        <Storefront size={14} weight="bold" />
+                                        Browse Campus Shops
+                                    </button>
+                                </div>
+                            ) : (
+                                filteredConversations.map(c => (
+                                    <div 
+                                        key={c.id} 
+                                        onClick={() => setSelectedUser(c)}
+                                        className={`p-3 cursor-pointer rounded-2xl transition-all duration-200 flex items-center space-x-3 ${
+                                            selectedUser?.id === c.id 
+                                                ? 'bg-white shadow-xs border border-[#dfd5da] text-[#1d1d1f] ring-2 ring-[#8e6e7d]/15' 
+                                                : 'hover:bg-white/80 text-[#6e6e73]'
+                                        }`}
+                                    >
+                                        <div className="w-10 h-10 bg-[#f5edf0] text-[#594951] font-bold text-xs rounded-2xl flex items-center justify-center overflow-hidden shrink-0 border border-[#e6dadf]">
+                                           {c.profile_image ? (
+                                                <img src={getImageUrl(c.profile_image)} alt="User" className="w-full h-full object-cover" />
+                                           ) : (
+                                                <span>{(c.full_name || 'U').substring(0, 2).toUpperCase()}</span>
+                                           )}
+                                        </div>
+                                        <div className="overflow-hidden flex-1 min-w-0">
+                                            <div className="flex items-center justify-between">
+                                                <p className="font-bold text-xs text-[#1d1d1f] truncate">{c.full_name || c.email}</p>
+                                            </div>
+                                            <p className="text-[11px] text-[#86868b] capitalize truncate">{c.role || 'Campus Merchant'}</p>
+                                        </div>
+                                    </div>
+                                ))
+                            )
+                        ) : (
+                            filteredMerchants.map(m => (
+                                <div
+                                    key={m.id}
+                                    onClick={() => handleSelectMerchant(m)}
+                                    className={`p-3 cursor-pointer rounded-2xl transition-all duration-200 flex items-center space-x-3 ${
+                                        selectedUser?.id === m.id
+                                            ? 'bg-white shadow-xs border border-[#dfd5da] text-[#1d1d1f] ring-2 ring-[#8e6e7d]/15'
+                                            : 'hover:bg-white/80 text-[#6e6e73]'
+                                    }`}
+                                >
+                                    <div className="w-10 h-10 bg-[#1d1d1f] text-white font-bold text-xs rounded-2xl flex items-center justify-center shrink-0 shadow-xs">
+                                        {m.initial}
+                                    </div>
+                                    <div className="overflow-hidden flex-1 min-w-0">
+                                        <p className="font-bold text-xs text-[#1d1d1f] truncate">{m.full_name}</p>
+                                        <p className="text-[11px] text-[#86868b] truncate">{m.role}</p>
+                                    </div>
+                                    <span className="text-[10px] font-bold px-2 py-1 bg-[#f5edf0] text-[#594951] rounded-lg">
+                                        Chat
+                                    </span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                {/* Chat Area */}
+                <div className={`flex-1 flex flex-col bg-[#f5f5f7] h-full overflow-hidden min-w-0 ${!selectedUser ? 'hidden md:flex' : 'flex'}`}>
+                    {selectedUser ? (
+                        <>
+                            {/* Chat Top Bar */}
+                            <div className="p-3.5 sm:p-4 border-b border-[#e8e8ed] bg-white flex items-center justify-between shadow-xs z-10 shrink-0">
+                                <div className="flex items-center space-x-3">
+                                    <button
+                                        onClick={() => setSelectedUser(null)}
+                                        className="p-1.5 text-[#86868b] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] rounded-xl md:hidden transition-colors"
+                                        title="Back to conversations"
+                                    >
+                                        <CaretLeft size={20} weight="bold" />
+                                    </button>
+                                    <div className="w-10 h-10 bg-[#1d1d1f] text-white font-bold text-xs rounded-2xl flex items-center justify-center overflow-hidden shrink-0 shadow-xs">
+                                        {selectedUser.profile_image ? (
+                                            <img src={getImageUrl(selectedUser.profile_image)} alt="User" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <span>{(selectedUser.full_name || 'U').substring(0, 2).toUpperCase()}</span>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <span className="font-bold text-xs sm:text-sm text-[#1d1d1f] block leading-tight">{selectedUser.full_name}</span>
+                                        <span className="text-[11px] text-[#86868b] capitalize">{selectedUser.role || 'Campus Merchant'}</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-200/50 flex items-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                        Ready to assist
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            {/* Messages Bubble List */}
+                            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-3.5 bg-[#fbfbfd]">
+                                {messages.length === 0 ? (
+                                    <div className="h-full flex flex-col items-center justify-center text-center p-6 text-[#86868b]">
+                                        <div className="w-12 h-12 bg-white rounded-2xl border border-[#e8e8ed] shadow-xs flex items-center justify-center mb-2.5 text-[#594951]">
+                                            <Sparkle size={22} weight="duotone" />
+                                        </div>
+                                        <p className="text-xs font-bold text-[#1d1d1f] mb-1">Start Conversation with {selectedUser.full_name}</p>
+                                        <p className="text-[11px] max-w-xs text-[#86868b]">Send an inquiry regarding an order, ask about service availability, or request details.</p>
+                                    </div>
+                                ) : (
+                                    messages.map((msg, idx) => {
+                                        const isMe = msg.sender_id === user.userId;
+                                        const repliedMsg = msg.reply_to_id ? messages.find(m => m.id === msg.reply_to_id) : null;
+
+                                        return (
+                                            <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-2 group`}>
+                                                {!isMe && (
+                                                    <div className="w-7 h-7 rounded-xl overflow-hidden bg-[#1d1d1f] text-white shrink-0 mb-1 flex items-center justify-center font-bold text-[10px]">
+                                                        {selectedUser.profile_image ? (
+                                                            <img src={getImageUrl(selectedUser.profile_image)} alt="User" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <span>{(selectedUser.full_name || 'U').substring(0, 2).toUpperCase()}</span>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {isMe && (
+                                                    <button 
+                                                        onClick={() => setReplyingTo(msg)} 
+                                                        className="opacity-0 group-hover:opacity-100 p-1.5 text-[#86868b] hover:text-[#1d1d1f] transition-all rounded-full hover:bg-[#f5edf0]"
+                                                        title="Reply"
+                                                    >
+                                                        <ArrowBendUpLeft size={16} weight="duotone" />
+                                                    </button>
+                                                )}
+
+                                                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[78%] sm:max-w-[70%]`}>
+                                                    {repliedMsg && (
+                                                         <div className="mb-1 text-[11px] px-3 py-1.5 rounded-xl bg-[#f5edf0] border-l-3 border-[#8e6e7d] opacity-90 w-full truncate cursor-pointer hover:bg-[#eee0e5] transition-colors">
+                                                             <p className="font-bold text-[#594951]">{repliedMsg.sender_id === user.userId ? 'You' : selectedUser.full_name}</p>
+                                                             <p className="truncate text-[#6e6e73]">
+                                                                 {repliedMsg.content || (repliedMsg.attachment_type === 'image' ? 'Image' : 'Attachment')}
+                                                             </p>
+                                                         </div>
+                                                    )}
+
+                                                    <div className={`p-3.5 rounded-2xl shadow-xs text-xs sm:text-sm leading-relaxed ${
+                                                        isMe 
+                                                        ? 'bg-[#1d1d1f] text-white rounded-br-xs' 
+                                                        : 'bg-white border border-[#e8e8ed] text-[#1d1d1f] rounded-bl-xs'
+                                                    }`}>
+                                                        {msg.message_type === 'image' && msg.attachment_url && (
+                                                            <div 
+                                                                className="mb-2 rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                                                                onClick={() => setViewingImage(getImageUrl(msg.attachment_url))}
+                                                            >
+                                                                <img src={getImageUrl(msg.attachment_url)} alt="Shared" className="max-w-full h-auto max-h-64 object-cover" />
+                                                            </div>
+                                                        )}
+                                                        
+                                                        {msg.message_type === 'audio' && msg.attachment_url && (
+                                                            <div className="mb-2 min-w-[200px]">
+                                                                <audio controls src={getImageUrl(msg.attachment_url)} className="w-full h-8" />
+                                                            </div>
+                                                        )}
+                                                        
+                                                        {msg.message_type === 'file' && msg.attachment_url && (
+                                                            <a href={getImageUrl(msg.attachment_url)} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 p-2 rounded-xl bg-black/10 mb-2 hover:bg-black/20 transition-colors ${isMe ? 'text-white' : 'text-[#8e6e7d]'}`}>
+                                                                <FileText size={18} weight="duotone" />
+                                                                <span className="underline break-all text-xs">Download Attachment</span>
+                                                            </a>
+                                                        )}
+
+                                                        {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
+
+                                                        <div className={`text-[10px] mt-1 text-right flex items-center justify-end gap-1 ${isMe ? 'text-white/70' : 'text-[#86868b]'}`}>
+                                                            <span>{new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                                            {isMe && (
+                                                                msg.is_read ? <Checks size={14} weight="bold" className="text-white" /> : <Check size={14} weight="bold" />
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {!isMe && (
+                                                    <button 
+                                                        onClick={() => setReplyingTo(msg)} 
+                                                        className="opacity-0 group-hover:opacity-100 p-1.5 text-[#86868b] hover:text-[#1d1d1f] transition-all rounded-full hover:bg-[#f5edf0]"
+                                                        title="Reply"
+                                                    >
+                                                        <ArrowBendUpLeft size={16} weight="duotone" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })
+                                )}
+                                <div ref={messagesEndRef} />
+                            </div>
+                            
+                            {/* Input Bar */}
+                            <div className="p-3.5 sm:p-4 bg-white border-t border-[#e8e8ed] shrink-0">
+                                 {replyingTo && (
+                                    <div className="mb-2 p-2.5 bg-[#f5edf0] rounded-2xl flex items-center justify-between border-l-4 border-[#8e6e7d]">
+                                        <div className="overflow-hidden">
+                                            <p className="text-[11px] font-bold text-[#594951]">Replying to {replyingTo.sender_id === user.userId ? 'yourself' : selectedUser.full_name}</p>
+                                            <p className="text-xs text-[#6e6e73] truncate">
+                                                {replyingTo.content || 'Attachment'}
+                                            </p>
+                                        </div>
+                                        <button onClick={cancelReply} className="text-[#86868b] hover:text-rose-500 p-1">
+                                             <X size={16} weight="bold" />
+                                        </button>
+                                    </div>
+                                 )}
+
+                                 {attachment && (
+                                     <div className="mb-2 p-2.5 bg-[#f5f5f7] rounded-2xl flex items-center justify-between border border-[#e8e8ed]">
+                                         <div className="flex items-center gap-2 overflow-hidden">
+                                             {attachment.type === 'image' && (
+                                                 <img src={getImageUrl(attachment.url)} alt="Preview" className="w-9 h-9 object-cover rounded-lg" />
+                                             )}
+                                             {attachment.type === 'file' && <FileText size={18} weight="duotone" className="text-[#86868b]" />}
+                                             {attachment.type === 'audio' && <Microphone size={18} weight="duotone" className="text-[#86868b]" />}
+                                             <span className="text-xs text-[#1d1d1f] truncate max-w-[200px]">{attachment.name}</span>
+                                         </div>
+                                         <button onClick={clearAttachment} className="text-[#86868b] hover:text-rose-500">
+                                             <X size={16} weight="bold" />
+                                         </button>
+                                     </div>
+                                 )}
+
+                                 <div className="flex gap-2 items-center">
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        className="hidden" 
+                                        onChange={handleFileSelect}
+                                    />
+                                    
+                                    <button 
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="p-2.5 text-[#86868b] hover:text-[#1d1d1f] hover:bg-[#f5edf0] rounded-full transition-colors"
+                                        title="Attach file"
+                                    >
+                                        <Paperclip size={20} weight="duotone" />
+                                    </button>
+                                    
+                                    {isRecording ? (
+                                        <div className="flex-1 flex items-center gap-2 px-4 py-2.5 bg-rose-50 text-rose-600 rounded-full border border-rose-100">
+                                            <div className="w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping" />
+                                            <span className="font-mono text-xs font-bold">{formatTime(recordingTime)}</span>
+                                            <div className="flex-1 text-xs text-right font-medium">Recording audio...</div>
+                                            <button onClick={stopRecording} className="p-1 hover:bg-rose-100 rounded-lg">
+                                                <div className="w-4 h-4 bg-rose-600 rounded-xs" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <input 
+                                                type="text"
+                                                className="flex-1 border border-[#dfd5da] rounded-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#1d1d1f]/10 focus:border-[#1d1d1f] transition-all text-xs sm:text-sm bg-[#f5f5f7] focus:bg-white"
+                                                placeholder={`Message ${selectedUser.full_name}...`}
+                                                value={inputValue}
+                                                onChange={(e) => setInputValue(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                                            />
+                                            
+                                            {!inputValue && !attachment ? (
+                                                <button 
+                                                    onClick={startRecording}
+                                                    className="p-2.5 text-[#86868b] hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors"
+                                                    title="Record voice message"
+                                                >
+                                                    <Microphone size={20} weight="duotone" />
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    onClick={handleSend}
+                                                    disabled={!inputValue.trim() && !attachment}
+                                                    className="bg-[#1d1d1f] text-white p-2.5 rounded-full hover:bg-[#333336] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95 shrink-0"
+                                                >
+                                                    <PaperPlaneRight size={17} weight="duotone" />
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
+                                 </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex-1 flex items-center justify-center text-[#86868b] flex-col bg-[#fbfbfd] p-8 text-center">
+                            <div className="w-16 h-16 bg-[#f5edf0] text-[#6b535d] rounded-3xl flex items-center justify-center mb-4 shadow-xs">
+                                <ChatCircleDots size={32} weight="duotone" />
+                            </div>
+                            <h3 className="text-base font-extrabold text-[#1d1d1f] mb-1.5">Direct Campus Merchant Chat</h3>
+                            <p className="text-xs text-[#86868b] max-w-sm mb-6">Connect directly with store owners for custom orders, sizing advice, repairs, and appointment consultations.</p>
+                            
+                            <div className="w-full max-w-md grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left">
+                                {CAMPUS_MERCHANTS.slice(0, 4).map(m => (
+                                    <button
+                                        key={m.id}
+                                        onClick={() => handleSelectMerchant(m)}
+                                        className="p-3 bg-white border border-[#e8e8ed] rounded-2xl hover:border-[#1d1d1f] transition-all flex items-center space-x-3 shadow-xs group"
+                                    >
+                                        <div className="w-8 h-8 rounded-xl bg-[#1d1d1f] text-white flex items-center justify-center font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
+                                            {m.initial}
+                                        </div>
+                                        <div className="overflow-hidden min-w-0">
+                                            <p className="font-bold text-xs text-[#1d1d1f] truncate">{m.full_name}</p>
+                                            <p className="text-[10px] text-[#86868b] truncate">{m.role}</p>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     )}
                 </div>
             </div>
 
-            {/* Chat Area */}
-            <div className="flex-1 flex flex-col bg-slate-50">
-                {selectedUser ? (
-                    <>
-                        <div className="p-4 border-b border-gray-100 bg-white flex items-center justify-between shadow-sm z-10">
-                            <div className="flex items-center">
-                                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center mr-3 text-primary overflow-hidden">
-                                    {selectedUser.profile_image ? (
-                                        <img src={getImageUrl(selectedUser.profile_image)} alt="User" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <User className="w-4 h-4" />
-                                    )}
-                                </div>
-                                <span className="font-bold text-gray-900">{selectedUser.full_name}</span>
-                            </div>
-                            <span className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 ${isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                                {isConnected ? 'Live' : 'Connecting...'}
-                            </span>
-                        </div>
-                        
-                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                            {messages.map((msg, idx) => {
-                                const isMe = msg.sender_id === user.userId;
-                                // Find replied message context
-                                const repliedMsg = msg.reply_to_id ? messages.find(m => m.id === msg.reply_to_id) : null;
-
-                                return (
-                                    <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-2 group`}>
-                                        {!isMe && (
-                                            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 mb-1">
-                                                {selectedUser.profile_image ? (
-                                                    <img src={getImageUrl(selectedUser.profile_image)} alt="User" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-gray-500">
-                                                        <User className="w-5 h-5" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Reply Button (Left Side for Me) */}
-                                        {isMe && (
-                                            <button 
-                                                onClick={() => setReplyingTo(msg)} 
-                                                className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-gray-600 transition-all rounded-full hover:bg-gray-100"
-                                                title="Reply"
-                                            >
-                                                <Reply className="w-4 h-4" />
-                                            </button>
-                                        )}
-
-                                        <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[70%]`}>
-                                            {/* Reply Context Bubble */}
-                                            {repliedMsg && (
-                                                 <div className={`mb-1 text-xs px-3 py-2 rounded-lg bg-gray-100 border-l-4 border-gray-400 opacity-80 w-full truncate cursor-pointer hover:bg-gray-200 transition-colors`} onClick={() => {
-                                                     // Optional: Scroll to message
-                                                 }}>
-                                                     <p className="font-bold text-gray-600 mb-0.5">{repliedMsg.sender_id === user.userId ? 'You' : selectedUser.full_name}</p>
-                                                     <p className="truncate text-gray-500">
-                                                         {repliedMsg.content || (repliedMsg.attachment_type === 'image' ? 'Example Image' : (repliedMsg.attachment_url ? 'Attachment' : 'Message'))}
-                                                     </p>
-                                                 </div>
-                                            )}
-
-                                            <div className={`p-3 rounded-2xl shadow-sm w-full ${
-                                                isMe 
-                                                ? 'bg-[#3B82F6] text-white rounded-br-none' 
-                                                : 'bg-[#1F2937] text-white rounded-bl-none'
-                                            }`}>
-                                                {/* Content Rendering based on Type */}
-                                                {msg.message_type === 'image' && msg.attachment_url && (
-                                                    <div 
-                                                        className="mb-2 rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                                                        onClick={() => setViewingImage(getImageUrl(msg.attachment_url))}
-                                                    >
-                                                        <img src={getImageUrl(msg.attachment_url)} alt="Shared" className="max-w-full h-auto max-h-64 object-cover" />
-                                                    </div>
-                                                )}
-                                                
-                                                {msg.message_type === 'audio' && msg.attachment_url && (
-                                                    <div className="mb-2 min-w-[200px]">
-                                                        <audio controls src={getImageUrl(msg.attachment_url)} className="w-full h-8" />
-                                                    </div>
-                                                )}
-                                                
-                                                {msg.message_type === 'file' && msg.attachment_url && (
-                                                    <a href={getImageUrl(msg.attachment_url)} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 p-2 rounded bg-black/10 mb-2 hover:bg-black/20 transition-colors ${isMe ? 'text-white' : 'text-blue-400'}`}>
-                                                        <FileText className="w-5 h-5" />
-                                                        <span className="text-sm underline break-all">Download File</span>
-                                                    </a>
-                                                )}
-
-                                                {msg.content && <p className="text-sm whitespace-pre-wrap">{msg.content}</p>}
-
-                                                <p className={`text-[10px] mt-1 text-right ${isMe ? 'text-blue-100' : 'text-gray-400'} flex items-center justify-end gap-1`}>
-                                                    {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                                    {isMe && (
-                                                        msg.is_read ? <CheckCheck className="w-3 h-3" /> : <Check className="w-3 h-3" />
-                                                    )}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* Reply Button (Right Side for Others) */}
-                                        {!isMe && (
-                                            <button 
-                                                onClick={() => setReplyingTo(msg)} 
-                                                className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-gray-600 transition-all rounded-full hover:bg-gray-100"
-                                                title="Reply"
-                                            >
-                                                <Reply className="w-4 h-4" />
-                                            </button>
-                                        )}
-
-                                        {isMe && (
-                                            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 mb-1">
-                                                {user.profileImage ? (
-                                                    <img src={getImageUrl(user.profileImage)} alt="Me" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-gray-500">
-                                                        <User className="w-5 h-5" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                            <div ref={messagesEndRef} />
-                        </div>
-                        
-                        <div className="p-4 bg-white border-t border-gray-100">
-                             {/* Reply Preview */}
-                             {replyingTo && (
-                                <div className="mb-2 p-2 bg-gray-50 rounded-lg flex items-center justify-between border-l-4 border-l-primary border-t border-r border-b border-gray-200">
-                                    <div className="overflow-hidden">
-                                        <p className="text-xs font-bold text-primary mb-1">Replying to {replyingTo.sender_id === user.userId ? 'yourself' : selectedUser.full_name}</p>
-                                        <p className="text-sm text-gray-600 truncate">
-                                            {replyingTo.content || (replyingTo.attachment_type === 'image' ? 'Image' : (replyingTo.attachment_url ? 'Attachment' : 'Message'))}
-                                        </p>
-                                    </div>
-                                    <button onClick={cancelReply} className="text-gray-400 hover:text-red-500 p-1">
-                                         <X className="w-4 h-4" />
-                                    </button>
-                                </div>
-                             )}
-
-                             {/* Attachment Preview */}
-                             {attachment && (
-                                 <div className="mb-2 p-2 bg-gray-50 rounded-lg flex items-center justify-between border border-gray-200">
-                                     <div className="flex items-center gap-2 overflow-hidden">
-                                         {attachment.type === 'image' && (
-                                             <img src={getImageUrl(attachment.url)} alt="Preview" className="w-10 h-10 object-cover rounded" />
-                                         )}
-                                         {attachment.type === 'file' && <FileText className="w-5 h-5 text-gray-500" />}
-                                         {attachment.type === 'audio' && <Mic className="w-5 h-5 text-gray-500" />}
-                                         <span className="text-sm text-gray-700 truncate max-w-[200px]">{attachment.name}</span>
-                                     </div>
-                                     <button onClick={clearAttachment} className="text-gray-400 hover:text-red-500">
-                                         <X className="w-4 h-4" />
-                                     </button>
-                                 </div>
-                             )}
-
-                             <div className="flex gap-2 items-end">
-                                {/* File Input (Hidden) */}
-                                <input 
-                                    type="file" 
-                                    ref={fileInputRef} 
-                                    className="hidden" 
-                                    onChange={handleFileSelect}
-                                />
-                                
-                                <button 
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                                    title="Attach file"
-                                >
-                                    <Paperclip className="w-5 h-5" />
-                                </button>
-                                
-                                {isRecording ? (
-                                    <div className="flex-1 flex items-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-full border border-red-100 animate-pulse">
-                                        <div className="w-2 h-2 bg-red-500 rounded-full animate-ping" />
-                                        <span className="font-mono text-sm">{formatTime(recordingTime)}</span>
-                                        <div className="flex-1 text-xs text-right">Recording...</div>
-                                        <button onClick={stopRecording} className="p-1 hover:bg-red-100 rounded-full">
-                                            <div className="w-4 h-4 bg-red-600 rounded-sm" />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <input 
-                                            type="text"
-                                            className="flex-1 border border-gray-200 rounded-full px-5 py-3 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                                            placeholder="Type your message..."
-                                            value={inputValue}
-                                            onChange={(e) => setInputValue(e.target.value)}
-                                            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                                        />
-                                        
-                                        {!inputValue && !attachment ? (
-                                            <button 
-                                                onClick={startRecording}
-                                                className="p-3 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                                                title="Record voice message"
-                                            >
-                                                <Mic className="w-5 h-5" />
-                                            </button>
-                                        ) : (
-                                            <button 
-                                                onClick={handleSend}
-                                                disabled={!inputValue.trim() && !attachment}
-                                                className="bg-primary text-white p-3 rounded-full hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
-                                            >
-                                                <Send className="w-5 h-5" />
-                                            </button>
-                                        )}
-                                    </>
-                                )}
-                             </div>
-                        </div>
-                    </>
-                ) : (
-                    <div className="flex-1 flex items-center justify-center text-gray-400 flex-col bg-gray-50/50">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                            <MessageSquare className="w-8 h-8 text-gray-300" />
-                        </div>
-                        <p className="font-medium text-gray-500">Select a conversation to start messaging</p>
-                    </div>
-                )}
-            </div>
-        </div>
-
-        {/* Full Screen Image Modal */}
-        {viewingImage && (
-            <div 
-                className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in"
-                onClick={() => setViewingImage(null)}
-            >
-                 <button 
-                    className="absolute top-6 right-6 text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors"
+            {/* Full Screen Image Modal */}
+            {viewingImage && (
+                <div 
+                    className="fixed inset-0 z-[100] bg-slate-950/95 flex items-center justify-center p-4 backdrop-blur-md"
                     onClick={() => setViewingImage(null)}
-                 >
-                     <X className="w-8 h-8" />
-                 </button>
-                 <img 
-                    src={viewingImage} 
-                    alt="Full view" 
-                    className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl" 
-                    onClick={(e) => e.stopPropagation()} 
-                 />
-            </div>
-        )}
+                >
+                     <button 
+                        className="absolute top-6 right-6 text-white/70 hover:text-white p-2.5 rounded-full hover:bg-white/10 transition-colors"
+                        onClick={() => setViewingImage(null)}
+                     >
+                         <X size={24} weight="bold" />
+                     </button>
+                     <img 
+                        src={viewingImage} 
+                        alt="Full view" 
+                        className="max-h-[90vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl" 
+                        onClick={(e) => e.stopPropagation()} 
+                     />
+                </div>
+            )}
         </>
     );
 };
