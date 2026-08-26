@@ -1,11 +1,124 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #000000;
-  --color-secondary: #374151;
-  --color-primary-dark: #1f2937;
+  --font-sans: 'Lexend', -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  --font-display: 'Lexend', -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+
+  --color-primary: #1d1d1f;
+  --color-primary-dark: #000000;
+  --color-secondary: #86868b;
+  
+  --color-apple-bg: #f5f5f7;
+  --color-apple-card: #ffffff;
+  --color-apple-dark: #1d1d1f;
+  --color-apple-subtext: #86868b;
+  --color-apple-pinkgray: #f5edf0;
+  --color-apple-pinkgray-border: #e6dadf;
+  --color-apple-pinkgray-text: #6b535d;
+}
+
+:root {
+  font-family: 'Lexend', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: -0.015em;
+  background-color: #f5f5f7;
+  color: #1d1d1f;
 }
 
 body {
-  @apply bg-gray-50 text-gray-900;
+  font-family: 'Lexend', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  background-color: #f5f5f7;
+  color: #1d1d1f;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Apple-style ultra-clean glass & frosted panels */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid rgba(220, 214, 218, 0.7);
+}
+
+.apple-card {
+  background: #ffffff;
+  border: 1px solid #e8e8ed;
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-card:hover {
+  border-color: #dfd5da;
+  box-shadow: 0 8px 24px rgba(107, 83, 93, 0.08);
+  transform: translateY(-2px);
+}
+
+.apple-pill-btn {
+  background-color: #1d1d1f;
+  color: #ffffff;
+  border-radius: 9999px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.apple-pill-btn:hover {
+  background-color: #333336;
+}
+
+.apple-pill-secondary {
+  background-color: #f5edf0;
+  color: #594951;
+  border: 1px solid #e6dadf;
+  border-radius: 9999px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.apple-pill-secondary:hover {
+  background-color: #eee0e5;
+  color: #3c2f35;
+}
+
+/* Modern Apple-style Select Inputs */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='%2386868b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
+  background-position: right 0.85rem center;
+  background-repeat: no-repeat;
+  background-size: 0.9rem;
+  padding-right: 2.25rem !important;
+  cursor: pointer;
+}
+
+select:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2.2' stroke='%231d1d1f'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
+}
+
+select option {
+  background-color: #ffffff;
+  color: #1d1d1f;
+  font-size: 0.8125rem;
+  padding: 0.5rem;
+}
+
+/* Minimalist scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d6cbcf;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b5a4ab;
 }
