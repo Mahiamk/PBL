@@ -21,13 +21,26 @@ import CustomerManager from '../../../components/vendor/management/CustomerManag
 import MessageManager from '../../../components/vendor/management/MessageManager';
 import AppointmentManager from './AppointmentManager';
 import { Package, Scissors } from 'lucide-react';
+import D3AreaTrendChart from '../../../components/charts/D3AreaTrendChart';
+import D3DonutBreakdownChart from '../../../components/charts/D3DonutBreakdownChart';
+import D3StatSparkline from '../../../components/charts/D3StatSparkline';
+import { computeRealRevenueTrend, computeRealVolumeTrend, computeRealProductBreakdown } from '../../../utils/dashboardMetrics';
 
 const TailorDashboard = () => {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => localStorage.getItem('vendor_sidebar_collapsed') === 'true');
   const [data, setData] = useState(null);
+
+  const toggleCollapse = () => {
+    setIsCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('vendor_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
   const selectedId = searchParams.get('id');
 
   useEffect(() => {
@@ -164,66 +177,82 @@ const TailorDashboard = () => {
         </div>
       );
       case 'dashboard':
-      default: return (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Sale Statistics Chart */}
-            <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-bold text-gray-900">Performance Overview</h2>
+      default: {
+        const realRevenueTrend = computeRealRevenueTrend(data?.recent_orders || [], 7);
+        const realVolumeTrend = computeRealVolumeTrend(data?.recent_orders || [], 'order_date', 7);
+        const realProductBreakdown = (() => {
+          const breakdown = computeRealProductBreakdown(data?.products || []);
+          return breakdown.length > 0 ? breakdown : [{ label: 'Tailoring Services', value: 1 }];
+        })();
+
+        return (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+              <div className="bg-white p-5 rounded-3xl shadow-xs border border-[#e8e8ed] flex items-center justify-between">
+                <div>
+                  <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider block mb-1">
+                    Active Jobs & Orders
+                  </span>
+                  <p className="text-2xl font-black text-[#1d1d1f]">{totalOrders}</p>
+                  <span className="text-[11px] font-semibold text-emerald-600">Garments in Progress</span>
+                </div>
+                <D3StatSparkline data={realVolumeTrend.map(d => d.value)} color="#1d1d1f" width={75} height={28} />
               </div>
-              <div className="h-80 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={salesData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="value" stroke="#8B5CF6" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+              
+              <div className="bg-white p-5 rounded-3xl shadow-xs border border-[#e8e8ed] flex items-center justify-between">
+                <div>
+                  <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider block mb-1">
+                    Tailoring Revenue
+                  </span>
+                  <p className="text-2xl font-black text-[#1d1d1f]">RM {totalRevenue.toFixed(2)}</p>
+                  <span className="text-[11px] font-semibold text-emerald-600">Total Captured</span>
+                </div>
+                <D3StatSparkline data={realRevenueTrend.map(d => d.total)} color="#8e6e7d" width={75} height={28} />
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl shadow-xs border border-[#e8e8ed] flex items-center justify-between">
+                <div>
+                  <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider block mb-1">
+                    Active Catalog & Services
+                  </span>
+                  <p className="text-2xl font-black text-[#1d1d1f]">
+                    {(data?.products || []).length}
+                  </p>
+                  <span className="text-[11px] font-semibold text-emerald-600">Services & Fabrics</span>
+                </div>
+                <D3StatSparkline data={[0, 0, 0, 0, 0, 0, (data?.products || []).length]} color="#594951" width={75} height={28} />
               </div>
             </div>
-            
-            {/* Lifetime Sales */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900 mb-6">Business Stats</h2>
-              <div className="space-y-4 mb-8">
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 rounded-full bg-blue-200"></div>
-                  <span className="text-gray-600 text-sm">{totalOrders} jobs</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 rounded-full bg-blue-200"></div>
-                  <span className="text-gray-600 text-sm">${totalRevenue.toFixed(2)} revenue</span>
-                </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-7">
+                <D3AreaTrendChart
+                  data={realRevenueTrend}
+                  xKey="date"
+                  yKey="total"
+                  title="Garment Production Volume"
+                  subtitle="7-day alterations & fittings revenue (RM)"
+                  height={280}
+                  color="#8e6e7d"
+                />
               </div>
-              <div className="h-64 w-full flex items-center justify-center relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={activePieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={0}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {activePieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
+              
+              <div className="lg:col-span-5">
+                <D3DonutBreakdownChart
+                  data={realProductBreakdown}
+                  labelKey="label"
+                  valueKey="value"
+                  title="Job & Service Categories"
+                  subtitle="Active tailoring catalog breakdown"
+                  height={280}
+                />
               </div>
             </div>
-          </div>
         </>
       );
     }
   };
+};
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans">
@@ -236,9 +265,11 @@ const TailorDashboard = () => {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         shopName={data?.store_info?.store_name}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={toggleCollapse}
       />
       
-      <div className="flex-1 md:ml-72 flex flex-col transition-all duration-300 relative h-full">
+      <div className={`flex-1 ${isCollapsed ? 'md:ml-20' : 'md:ml-64'} flex flex-col transition-all duration-300 relative h-full`}>
         <TopBar onMenuClick={() => setIsSidebarOpen(true)} />
         
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 md:p-6 scrollbar-thin scrollbar-thumb-gray-200">
