@@ -63,6 +63,11 @@ class Store(BaseModel):
     store_name: str
     store_type: Optional[str] = None
     image_url: Optional[str] = None
+    working_hours: Optional[str] = None
+    location: Optional[str] = None
+    phone: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = "active"
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -169,6 +174,7 @@ class Order(BaseModel):
     customer_name: Optional[str] = None
     vendor_user_id: Optional[int] = None # Added for messaging support
     store_name: Optional[str] = None # Added for UI display
+    store_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -272,6 +278,21 @@ class Review(BaseModel):
     comment: Optional[str] = None
     created_at: datetime
 
+class ServiceItem(BaseModel):
+    service_id: int
+    service_name: str
+    service_desc: Optional[str] = None
+    service_price: float
+    image_url: Optional[str] = None
+    status: Optional[str] = "active"
+    store_id: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class StoreDetail(Store):
+    services: List[ServiceItem] = []
+    products: List[Product] = []
+
     model_config = ConfigDict(from_attributes=True)
 
 # --- Dashboard Data Schemas ---
@@ -280,13 +301,18 @@ class AdminDashboardData(BaseModel):
     total_vendors: int
     total_customers: int
     total_orders: int
-    recent_logs: List[dict]
-    orders_graph: List[dict]  # Defaults to Daily
-    users_graph: List[dict]   # Defaults to Daily
+    total_stores: Optional[int] = 0
+    total_revenue: Optional[float] = 0.0
+    total_appointments: Optional[int] = 0
+    recent_logs: List[dict] = []
+    orders_graph: List[dict] = []  # Defaults to Daily
+    users_graph: List[dict] = []   # Defaults to Daily
     orders_graph_weekly: List[dict] = []
     orders_graph_monthly: List[dict] = []
     users_graph_weekly: List[dict] = []
     users_graph_monthly: List[dict] = []
+    store_distribution: List[dict] = []
+    revenue_trend: List[dict] = []
 
 class VendorDashboardData(BaseModel):
     store_info: Store
