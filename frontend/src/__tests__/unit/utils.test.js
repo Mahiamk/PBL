@@ -32,22 +32,19 @@ describe('cn utility', () => {
 
 describe('Price formatting', () => {
   const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(price);
+    return `RM ${Number(price).toFixed(2)}`;
   };
 
   it('should format price correctly', () => {
-    expect(formatPrice(29.99)).toBe('$29.99');
+    expect(formatPrice(29.99)).toBe('RM 29.99');
   });
 
   it('should format whole numbers', () => {
-    expect(formatPrice(100)).toBe('$100.00');
+    expect(formatPrice(100)).toBe('RM 100.00');
   });
 
   it('should handle zero', () => {
-    expect(formatPrice(0)).toBe('$0.00');
+    expect(formatPrice(0)).toBe('RM 0.00');
   });
 });
 
