@@ -1,7 +1,64 @@
 import axios from 'axios';
 
+export const getApiBaseUrl = () => {
+  const configuredUrl = import.meta.env.VITE_API_URL?.trim();
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return 'http://localhost:8000';
+  }
+
+  return '/';
+};
+
+export const getBackendBaseUrl = () => {
+  const configuredUrl = import.meta.env.VITE_API_URL?.trim();
+  if (configuredUrl?.startsWith('http')) {
+    return configuredUrl.replace(/\/api\/?$/, '');
+  }
+
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return 'http://localhost:8000';
+  }
+
+  return window.location.origin;
+};
+
+export const getImageUrl = (url, fallback = '/assets/bowl-white.jpg') => {
+  if (!url) return fallback;
+  const rawUrl = typeof url === 'object' && url !== null ? (url.image_url || url.url || '') : url;
+  if (!rawUrl || typeof rawUrl !== 'string') return fallback;
+  
+  if (rawUrl.startsWith('data:') || rawUrl.startsWith('blob:')) return rawUrl;
+  
+  if (rawUrl.includes('/uploads/')) {
+    const filename = rawUrl.split('/uploads/').pop();
+    return `${getBackendBaseUrl()}/uploads/${filename}`;
+  }
+  
+  if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+    return rawUrl;
+  }
+  
+  if (rawUrl.startsWith('/uploads/') || rawUrl.startsWith('uploads/')) {
+    const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
+    return `${getBackendBaseUrl()}${cleanPath}`;
+  }
+  
+  if (rawUrl.startsWith('/assets/')) {
+    return rawUrl;
+  }
+  if (rawUrl.startsWith('assets/')) {
+    return `/${rawUrl}`;
+  }
+  
+  return rawUrl;
+};
+
 const API = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || '/api',   // Connects to FastAPI via Vercel routing
+    baseURL: getApiBaseUrl(),
     withCredentials: true,
 });
 
@@ -89,6 +146,11 @@ export const fetchStores = async () => {
 
 export const fetchStoreById = async (storeId) => {
   const response = await API.get(`/api/stores/${storeId}`);
+  return response.data;
+};
+
+export const fetchStoreDetail = async (storeId) => {
+  const response = await API.get(`/api/stores/${storeId}/detail`);
   return response.data;
 };
 
