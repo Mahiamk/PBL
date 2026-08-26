@@ -6,7 +6,7 @@ from app.core.config import settings
 
 # 2. JWT Configuration
 # HS256 is the standard algorithm for signing tokens
-ALGORITHM = "HS256"
+ALGORITHM = settings.ALGORITHM
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
