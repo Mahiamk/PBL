@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { fetchProducts, deleteProduct, updateProduct } from '../../../lib/api';
+import { fetchProducts, deleteProduct, updateProduct, getImageUrl } from '../../../lib/api';
 import { useAuth } from '../../../context/AuthContext';
 import ProductNewForm from './ProductNewForm';
-import { Search, Filter, MoreHorizontal, Trash2, Edit2, Save, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { 
+  MagnifyingGlass, 
+  Plus, 
+  Trash, 
+  PencilSimple, 
+  FloppyDisk, 
+  X, 
+  CheckCircle, 
+  WarningCircle,
+  Package,
+  ArrowClockwise,
+  SlidersHorizontal
+} from '@phosphor-icons/react';
 
 const ProductManager = () => {
   const { user } = useAuth();
@@ -58,7 +70,6 @@ const ProductManager = () => {
 
   useEffect(() => {
     if (user) {
-      // If vendor, load their store's products. If admin (no storeId), load all.
       loadProducts();
     }
   }, [user]);
@@ -66,9 +77,9 @@ const ProductManager = () => {
   const loadProducts = async () => {
     try {
       const data = await fetchProducts(user?.storeId);
-      setProducts(data);
+      setProducts(data || []);
     } catch (error) {
-      console.error("Failed to load products");
+      console.error("Failed to load products", error);
     }
   };
 
@@ -106,7 +117,7 @@ const ProductManager = () => {
   };
 
   const filteredProducts = products.filter(product => {
-    const matchesSearch = product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = (product.product_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'all' || product.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -117,238 +128,238 @@ const ProductManager = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">Create a new product</h2>
+    <div className="space-y-6 animate-fade-in">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-[#e8e8ed] shadow-xs">
+        <div>
+          <span className="text-[10px] font-bold text-[#8e6e7d] uppercase tracking-widest block mb-1">
+            Catalog Management
+          </span>
+          <h2 className="text-xl font-black text-[#1d1d1f] tracking-tight">Products & Inventory</h2>
+          <p className="text-xs text-[#6e6e73]">
+            Manage items, pricing, inventory stock, and availability.
+          </p>
+        </div>
         <button 
           onClick={() => setIsCreating(true)}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-medium"
+          className="inline-flex items-center space-x-2 bg-[#1d1d1f] text-white px-4 py-2.5 rounded-full text-xs font-semibold hover:bg-[#333336] transition-all shadow-xs"
         >
-          New Product
+          <Plus size={15} weight="bold" />
+          <span>Add New Product</span>
         </button>
       </div>
 
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="relative w-full sm:w-64">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-green-500 focus:border-green-500 sm:text-sm"
-              placeholder="Search"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+      {/* Notifications */}
+      {success && (
+        <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-semibold flex items-center space-x-2">
+          <CheckCircle size={18} weight="fill" className="text-emerald-600" />
+          <span>{success}</span>
+        </div>
+      )}
+      {error && (
+        <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-semibold flex items-center space-x-2">
+          <WarningCircle size={18} weight="fill" className="text-rose-600" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Search & Filter Bar */}
+      <div className="bg-white p-4 rounded-3xl border border-[#e8e8ed] shadow-xs flex flex-col sm:flex-row justify-between items-center gap-3">
+        <div className="relative w-full sm:w-80">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#86868b]">
+            <MagnifyingGlass size={16} weight="bold" />
           </div>
-          
-          <div className="flex items-center gap-4 w-full sm:w-auto">
-            <div className="relative">
-              <select 
-                className="appearance-none bg-white border border-gray-300 text-gray-700 py-2 px-4 pr-8 rounded leading-tight focus:outline-none focus:bg-white focus:border-gray-500"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">Status</option>
-                <option value="active">Enabled</option>
-                <option value="disabled">Disabled</option>
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-              </div>
-            </div>
-
-            <div className="relative">
-              <select className="appearance-none bg-white border border-gray-300 text-gray-700 py-2 px-4 pr-8 rounded leading-tight focus:outline-none focus:bg-white focus:border-gray-500">
-                <option>Product Type</option>
-                <option>Physical</option>
-                <option>Digital</option>
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-              </div>
-            </div>
-
-            <button 
-              onClick={() => {setSearchTerm(''); setStatusFilter('all');}}
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+          <input
+            type="text"
+            className="block w-full pl-10 pr-3.5 py-2 border border-[#e8e8ed] rounded-full text-xs bg-[#f5f5f7] placeholder-[#86868b] focus:outline-none focus:bg-white focus:border-[#8e6e7d] transition-all duration-200"
+            placeholder="Search by name, SKU, category..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        
+        <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
+          <div className="flex items-center space-x-1.5 bg-[#f5f5f7] px-3 py-1.5 rounded-full border border-[#e8e8ed] text-xs">
+            <SlidersHorizontal size={14} className="text-[#86868b]" />
+            <select 
+              className="bg-transparent text-xs font-bold text-[#1d1d1f] focus:outline-none cursor-pointer"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
             >
-              Clear filter
-            </button>
+              <option value="all">All Status</option>
+              <option value="active">Active & In Stock</option>
+              <option value="disabled">Disabled / Inactive</option>
+            </select>
           </div>
+
+          {(searchTerm || statusFilter !== 'all') && (
+            <button 
+              onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}
+              className="text-xs font-semibold text-[#8e6e7d] hover:text-[#1d1d1f] px-2 py-1"
+            >
+              Reset
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="bg-white shadow rounded-lg overflow-hidden border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-white">
-            <tr>
-              <th className="px-6 py-3 text-left">
-                <input 
-                  type="checkbox" 
-                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                  onChange={toggleSelectAll}
-                  checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
-                />
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">THUMBNAIL</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700">
-                NAME <span className="inline-block ml-1">↕</span>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700">
-                PRICE <span className="inline-block ml-1">↕</span>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700">
-                STOCK <span className="inline-block ml-1">↕</span>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700">
-                STATUS <span className="inline-block ml-1">↕</span>
-              </th>
-              <th className="relative px-6 py-3">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredProducts.map((product) => (
-              <tr key={product.product_id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
+      {/* Product Table */}
+      <div className="bg-white rounded-3xl border border-[#e8e8ed] shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-[#f0eaed] text-left text-xs">
+            <thead className="bg-[#fbfbfd] text-[#86868b] uppercase text-[10px] font-bold">
+              <tr>
+                <th className="px-5 py-3.5 w-10">
                   <input 
                     type="checkbox" 
-                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                    checked={selectedProducts.includes(product.product_id)}
-                    onChange={() => toggleSelectProduct(product.product_id)}
+                    className="rounded border-[#e8e8ed] text-[#1d1d1f] focus:ring-[#8e6e7d]"
+                    onChange={toggleSelectAll}
+                    checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
                   />
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="h-10 w-10 flex-shrink-0">
-                    {product.image_url ? (
-                      <img className="h-10 w-10 rounded object-cover border border-gray-200" src={product.image_url} alt="" />
-                    ) : (
-                      <div className="h-10 w-10 rounded bg-gray-100 flex items-center justify-center text-gray-400 text-xs">No Img</div>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-bold text-gray-900">{product.product_name}</div>
-                </td>
-                
-                {/* Editable Price */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {editingId === product.product_id ? (
-                    <div className="flex items-center">
-                      <span className="text-gray-500 mr-1">$</span>
-                      <input
-                        type="number"
-                        name="product_price"
-                        value={editForm.product_price}
-                        onChange={handleInputChange}
-                        className="w-20 px-2 py-1 text-sm border rounded focus:ring-green-500 focus:border-green-500"
-                        step="0.01"
-                      />
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-900">${product.product_price.toFixed(2)}</div>
-                  )}
-                </td>
-
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">{product.sku || '-'}</div>
-                </td>
-
-                {/* Editable Stock */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {editingId === product.product_id ? (
-                    <input
-                      type="number"
-                      name="stock_quantity"
-                      value={editForm.stock_quantity}
-                      onChange={handleInputChange}
-                      className="w-20 px-2 py-1 text-sm border rounded focus:ring-green-500 focus:border-green-500"
-                    />
-                  ) : (
-                    <div className={`text-sm font-medium ${product.stock_quantity <= 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                      {product.stock_quantity || 0}
-                    </div>
-                  )}
-                </td>
-
-                {/* Editable Status */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {editingId === product.product_id ? (
-                    <select
-                      name="status"
-                      value={editForm.status}
-                      onChange={handleInputChange}
-                      className="text-sm border rounded px-2 py-1 focus:ring-green-500 focus:border-green-500"
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                      <option value="draft">Draft</option>
-                    </select>
-                  ) : (
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      product.status === 'active' ? 'bg-green-100 text-green-800' : 
-                      product.status === 'inactive' ? 'bg-red-100 text-red-800' : 
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {product.status || 'active'}
-                    </span>
-                  )}
-                </td>
-
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  {editingId === product.product_id ? (
-                    <div className="flex items-center justify-end space-x-2">
-                      <button 
-                        onClick={() => handleSaveEdit(product.product_id)}
-                        className="text-green-600 hover:text-green-900"
-                        title="Save"
-                      >
-                        <Save className="h-5 w-5" />
-                      </button>
-                      <button 
-                        onClick={handleCancelEdit}
-                        className="text-gray-400 hover:text-gray-600"
-                        title="Cancel"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-end space-x-3">
-                      <button 
-                        onClick={() => handleEditClick(product)}
-                        className="text-blue-400 hover:text-blue-600"
-                        title="Edit Product"
-                      >
-                        <Edit2 className="h-5 w-5" />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(product.product_id)}
-                        className="text-red-400 hover:text-red-600"
-                        title="Delete Product"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </div>
-                  )}
-                </td>
+                </th>
+                <th className="px-5 py-3.5">Product Name</th>
+                <th className="px-5 py-3.5">Price</th>
+                <th className="px-5 py-3.5">Stock Quantity</th>
+                <th className="px-5 py-3.5">Status</th>
+                <th className="px-5 py-3.5 text-right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {filteredProducts.length === 0 && (
-          <div className="text-center py-10 text-gray-500">
-            No products found matching your filters.
-          </div>
-        )}
+            </thead>
+            <tbody className="divide-y divide-[#f0eaed] text-[#1d1d1f]">
+              {filteredProducts.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-xs text-[#86868b]">
+                    <Package size={36} weight="duotone" className="mx-auto mb-2 opacity-50" />
+                    No products found in your inventory catalog.
+                  </td>
+                </tr>
+              ) : (
+                filteredProducts.map((product) => {
+                  const isEditing = editingId === product.product_id;
+
+                  return (
+                    <tr key={product.product_id} className="hover:bg-[#fbfbfd] transition-colors">
+                      <td className="px-5 py-3.5">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-[#e8e8ed] text-[#1d1d1f] focus:ring-[#8e6e7d]"
+                          checked={selectedProducts.includes(product.product_id)}
+                          onChange={() => toggleSelectProduct(product.product_id)}
+                        />
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center space-x-3">
+                          {product.image_url ? (
+                            <img 
+                              src={getImageUrl(product.image_url)} 
+                              alt={product.product_name} 
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = '/assets/bowl-white.jpg';
+                              }}
+                              className="w-10 h-10 object-cover rounded-xl border border-[#e8e8ed] shrink-0" 
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl bg-[#f5edf0] flex items-center justify-center text-[#8e6e7d] shrink-0">
+                              <Package size={20} weight="duotone" />
+                            </div>
+                          )}
+                          <div>
+                            <span className="font-bold text-[#1d1d1f] block">{product.product_name}</span>
+                            <span className="text-[10px] text-[#86868b]">SKU: {product.sku || `AIU-${product.product_id}`}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {isEditing ? (
+                          <input 
+                            type="number" 
+                            name="product_price" 
+                            value={editForm.product_price} 
+                            onChange={handleInputChange} 
+                            className="w-24 px-2 py-1 border border-[#e8e8ed] rounded-lg text-xs font-bold"
+                          />
+                        ) : (
+                          <span className="font-bold">RM {Number(product.product_price).toFixed(2)}</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {isEditing ? (
+                          <input 
+                            type="number" 
+                            name="stock_quantity" 
+                            value={editForm.stock_quantity} 
+                            onChange={handleInputChange} 
+                            className="w-20 px-2 py-1 border border-[#e8e8ed] rounded-lg text-xs"
+                          />
+                        ) : (
+                          <span className="font-semibold text-[#6e6e73]">{product.stock_quantity || 0} units</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {isEditing ? (
+                          <select 
+                            name="status" 
+                            value={editForm.status} 
+                            onChange={handleInputChange} 
+                            className="px-2 py-1 border border-[#e8e8ed] rounded-lg text-xs"
+                          >
+                            <option value="active">Active</option>
+                            <option value="disabled">Disabled</option>
+                          </select>
+                        ) : (
+                          <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            <span>{product.status || 'Active'}</span>
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 text-right space-x-1">
+                        {isEditing ? (
+                          <>
+                            <button 
+                              onClick={() => handleSaveEdit(product.product_id)} 
+                              className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                              title="Save changes"
+                            >
+                              <FloppyDisk size={16} weight="bold" />
+                            </button>
+                            <button 
+                              onClick={handleCancelEdit} 
+                              className="p-1.5 text-[#86868b] hover:bg-[#f5f5f7] rounded-lg transition-colors"
+                              title="Cancel"
+                            >
+                              <X size={16} weight="bold" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button 
+                              onClick={() => handleEditClick(product)} 
+                              className="p-1.5 text-[#86868b] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] rounded-lg transition-colors"
+                              title="Quick edit"
+                            >
+                              <PencilSimple size={16} weight="duotone" />
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(product.product_id)} 
+                              className="p-1.5 text-[#86868b] hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                              title="Delete product"
+                            >
+                              <Trash size={16} weight="duotone" />
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 };
 
 export default ProductManager;
-
