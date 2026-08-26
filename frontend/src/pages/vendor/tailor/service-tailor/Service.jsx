@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { createService, uploadImage } from '../../../../lib/api'; // Use createService
+import { createService, uploadImage, getImageUrl } from '../../../../lib/api'; // Use createService
 import { useAuth } from '../../../../context/AuthContext';
 import { Camera, X } from 'lucide-react';
 
@@ -170,7 +170,15 @@ export default function ServiceForm({ onSuccess, onCancel, storeId }) {
               <div className="mt-4 grid grid-cols-4 gap-4">
                 {formData.images.map((img, index) => (
                   <div key={index} className="relative group">
-                    <img src={img} alt={`Preview ${index}`} className="h-24 w-full object-cover rounded-md" />
+                    <img 
+                      src={getImageUrl(img)} 
+                      alt={`Preview ${index}`} 
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = '/assets/bowl-white.jpg';
+                      }}
+                      className="h-24 w-full object-cover rounded-md" 
+                    />
                     <button
                       type="button"
                       onClick={() => removeImage(index)}
