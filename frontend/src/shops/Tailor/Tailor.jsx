@@ -62,13 +62,19 @@ const BookingModal = ({ isOpen, onClose, onConfirm, services }) => {
             <select 
               value={serviceType}
               onChange={(e) => setServiceType(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+              className="w-full px-4 py-3 text-xs font-semibold bg-[#f5f5f7] hover:bg-white border border-[#e8e8ed] rounded-2xl focus:border-[#8e6e7d] focus:bg-white outline-none transition-all cursor-pointer text-[#1d1d1f]"
             >
-              {services && services.map((service) => (
-                <option key={service.service_id} value={service.service_name}>
-                  {service.service_name}
+              {services && services.length > 0 ? (
+                services.map((service) => (
+                  <option key={service.service_id} value={service.service_name}>
+                    {service.service_name} • RM {parseFloat(service.service_price || 15).toFixed(2)}
+                  </option>
+                ))
+              ) : (
+                <option value="Bespoke Fitting & Alteration">
+                  Bespoke Fitting & Alteration • RM 20.00
                 </option>
-              ))}
+              )}
             </select>
           </div>
 
@@ -258,22 +264,28 @@ const Tailor = () => {
         </div>
 
         {/* Services Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-20">
-          {services.map((service, index) => (
-            <div key={service.service_id || index} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow text-center group">
-              {service.image_url ? (
-                  <img src={service.image_url} alt={service.service_name} className="w-16 h-16 rounded-full object-cover mb-6 mx-auto" />
-              ) : (
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-50 text-green-700 mb-6 group-hover:bg-green-700 group-hover:text-white transition-colors mx-auto">
-                    <Scissors className="w-8 h-8" />
-                  </div>
-              )}
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">{service.service_name}</h3>
-              <p className="text-gray-500">{service.service_desc}</p>
-              <p className="text-green-700 font-bold mt-2">${service.service_price}</p>
-            </div>
-          ))}
-        </div>
+        {services && services.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-20">
+            {services.map((service, index) => (
+              <div key={service.service_id || index} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow text-center group">
+                {service.image_url ? (
+                    <img src={service.image_url} alt={service.service_name} className="w-16 h-16 rounded-full object-cover mb-6 mx-auto" />
+                ) : (
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-50 text-green-700 mb-6 group-hover:bg-green-700 group-hover:text-white transition-colors mx-auto">
+                      <Scissors className="w-8 h-8" />
+                    </div>
+                )}
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{service.service_name}</h3>
+                <p className="text-gray-500">{service.service_desc}</p>
+                <p className="text-green-700 font-bold mt-2">RM {service.service_price}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center p-10 bg-white rounded-2xl border border-gray-100 mb-16 text-gray-500 text-sm">
+            No tailoring services currently listed. Tap "Book Appointment" above for a custom fitting session.
+          </div>
+        )}
 
         {/* Team Section */}
         <div className="bg-white rounded-2xl p-8 md:p-12 shadow-sm border border-gray-100">
