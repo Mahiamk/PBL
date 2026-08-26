@@ -1,21 +1,29 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { ShoppingBag, ShoppingCart, User, LogOut, Search, Menu, X } from 'lucide-react';
-
+import {
+  ShoppingBagOpen,
+  ShoppingCart,
+  UserCircle,
+  SignOut,
+  MagnifyingGlass,
+  List,
+  X,
+  Storefront,
+  SquaresFour,
+  House,
+} from '@phosphor-icons/react';
 
 const NavBar = () => {
   const { user, logout } = useAuth();
   const { cartCount, openCart } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-
-
-
-const handleSearch = (e) => {
+  const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/shop?q=${encodeURIComponent(searchQuery)}`);
@@ -24,140 +32,248 @@ const handleSearch = (e) => {
     }
   };
 
+  const isActive = (path) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
+
   return (
-    <nav className="bg-white shadow-sm sticky top-0 z-50">
+    <nav className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 border-b border-[#e8e8ed] shadow-xs transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo & Mobile Menu Button */}
+          <div className="flex items-center space-x-3">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary md:hidden mr-2 transition-transform duration-200 active:scale-95"
+              className="inline-flex items-center justify-center p-2 rounded-full text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f5edf0] focus:outline-none transition-all duration-200 md:hidden active:scale-95"
+              aria-label="Toggle Navigation Menu"
             >
-              <div className="relative w-6 h-6">
-                <Menu 
-                  className={`absolute inset-0 w-6 h-6 transition-all duration-300 transform ${
-                    isMenuOpen ? 'opacity-0 rotate-90 scale-0' : 'opacity-100 rotate-0 scale-100'
-                  }`} 
-                />
-                <X 
-                  className={`absolute inset-0 w-6 h-6 transition-all duration-300 transform ${
-                    isMenuOpen ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-0'
-                  }`} 
-                />
-              </div>
-            </button>
-            <Link to="/" className="flex-shrink-0 flex items-center">
-              <ShoppingBag className="h-8 w-8 text-primary" />
-              <span className="ml-2 text-xl font-bold text-gray-900 hidden sm:block">PBL Store</span>
-            </Link>
-            <div className="hidden md:ml-6 md:flex md:space-x-8">
-              <Link to="/" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                Home
-              </Link>
-              <Link to="/shops" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                Stores
-              </Link>
-              <Link to="/shop" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                All Products
-              </Link>
-              {user && user.role === 'customer' && (
-                <Link to="/customer" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                  Dashboard
-                </Link>
+              {isMenuOpen ? (
+                <X size={22} weight="bold" className="text-[#1d1d1f]" />
+              ) : (
+                <List size={22} weight="bold" className="text-[#1d1d1f]" />
               )}
+            </button>
+
+            <Link to="/" className="flex items-center space-x-2.5 group">
+              <div className="w-9 h-9 rounded-full bg-[#1d1d1f] text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-200">
+                <ShoppingBagOpen size={19} weight="duotone" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-base font-extrabold tracking-tight text-[#1d1d1f]">
+                  AIU Store
+                </span>
+                <span className="text-[9px] font-medium uppercase tracking-widest text-[#86868b] -mt-1 hidden sm:block">
+                  Official Market
+                </span>
+              </div>
+            </Link>
+
+            {/* Desktop Navigation Links */}
+            <div className="hidden md:flex items-center space-x-1 ml-6">
+              <Link
+                to="/"
+                className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+                  isActive('/')
+                    ? 'bg-[#f5edf0] text-[#1d1d1f] font-semibold'
+                    : 'text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f5f5f7]'
+                }`}
+              >
+                <House size={16} weight="duotone" />
+                <span>Home</span>
+              </Link>
+              <Link
+                to="/shops"
+                className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+                  isActive('/shops')
+                    ? 'bg-[#f5edf0] text-[#1d1d1f] font-semibold'
+                    : 'text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f5f5f7]'
+                }`}
+              >
+                <Storefront size={16} weight="duotone" />
+                <span>Stores</span>
+              </Link>
+              <Link
+                to="/shop"
+                className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+                  isActive('/shop')
+                    ? 'bg-[#f5edf0] text-[#1d1d1f] font-semibold'
+                    : 'text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f5f5f7]'
+                }`}
+              >
+                <SquaresFour size={16} weight="duotone" />
+                <span>All Products</span>
+              </Link>
             </div>
           </div>
 
-          <div className="flex-1 flex items-center justify-center px-2 lg:ml-6 lg:justify-end">
-            <div className="max-w-lg w-full lg:max-w-xs">
-              <label htmlFor="search" className="sr-only">Search</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
-                </div>
-                <form onSubmit={handleSearch}>
+          {/* Right Action Area: Compact Search, Cart, Dashboard & Profile */}
+          <div className="flex items-center space-x-1.5 sm:space-x-2.5">
+            {/* Compact Search Bar */}
+            <div className="hidden md:flex items-center w-40 lg:w-52">
+              <form onSubmit={handleSearch} className="w-full relative">
+                <div className="relative flex items-center">
+                  <MagnifyingGlass
+                    size={14}
+                    weight="bold"
+                    className="absolute left-3 text-[#86868b] pointer-events-none"
+                  />
                   <input
-                    id="search"
-                    name="search"
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm"
-                    placeholder="Search"
                     type="search"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search..."
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#f5f5f7] hover:bg-[#f0eaed] focus:bg-white text-[#1d1d1f] placeholder:text-[#86868b] rounded-full border border-transparent focus:border-[#dfd5da] focus:ring-2 focus:ring-[#1d1d1f]/5 outline-none transition-all duration-200"
                   />
-                </form>
-              </div>
+                </div>
+              </form>
             </div>
-          </div>
 
-          <div className="flex items-center space-x-4 ml-4">
-            <button onClick={openCart} className="p-2 rounded-full text-gray-400 hover:text-gray-500 relative">
-              <ShoppingCart className="h-6 w-6" />
+            {/* Cart Button */}
+            <button
+              onClick={openCart}
+              className="relative p-2 rounded-full text-[#1d1d1f] hover:bg-[#f5edf0] transition-all duration-200 active:scale-95"
+              aria-label="Shopping Cart"
+              title="Shopping Cart"
+            >
+              <ShoppingCart size={20} weight="duotone" />
               {cartCount > 0 && (
-                <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full">
+                <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[18px] h-4.5 px-1 text-[10px] font-bold leading-none text-white bg-[#8e6e7d] rounded-full shadow-xs">
                   {cartCount}
                 </span>
               )}
             </button>
 
+            {/* Dashboard Link on Right Side */}
+            {user && (
+              <Link
+                to={user.role === 'admin' ? '/admin' : user.role === 'vendor' ? '/vendor' : '/customer'}
+                className={`hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+                  isActive('/customer') || isActive('/vendor') || isActive('/admin')
+                    ? 'bg-[#f5edf0] text-[#1d1d1f] font-semibold'
+                    : 'text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] border border-[#e8e8ed]'
+                }`}
+              >
+                <SquaresFour size={15} weight="duotone" className="text-[#8e6e7d]" />
+                <span>Dashboard</span>
+              </Link>
+            )}
+
             {user ? (
-              <div className="flex items-center space-x-2">
-                <Link 
-                  to={user.role === 'admin' ? '/admin' : user.role === 'vendor' ? '/vendor' : '/customer'} 
-                  className="p-2 rounded-full text-gray-400 hover:text-gray-500"
-                  title="Profile"
+              <div className="flex items-center space-x-1 sm:space-x-1.5 pl-1 sm:pl-2 border-l border-[#e8e8ed]">
+                <Link
+                  to={user.role === 'admin' ? '/admin' : user.role === 'vendor' ? '/vendor' : '/customer'}
+                  className="flex items-center space-x-1.5 px-2 py-1.5 rounded-full text-[#1d1d1f] hover:bg-[#f5edf0] transition-all duration-200"
+                  title="My Account"
                 >
-                  <User className="h-6 w-6" />
+                  <UserCircle size={22} weight="duotone" className="text-[#8e6e7d]" />
+                  <span className="text-xs font-medium hidden md:inline">
+                    {user.first_name || 'Account'}
+                  </span>
                 </Link>
-                <button onClick={logout} className="p-2 rounded-full text-gray-400 hover:text-gray-500" title="Sign Out">
-                  <LogOut className="h-6 w-6" />
+                <button
+                  onClick={logout}
+                  className="p-1.5 text-[#86868b] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] rounded-full transition-colors"
+                  title="Sign Out"
+                >
+                  <SignOut size={18} />
                 </button>
               </div>
             ) : (
-              <Link to="/login" className="flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-primary hover:bg-gray-50 transition-colors">
-                <User className="h-5 w-5" />
-                <span>Login</span>
-              </Link>
+              <div className="flex items-center space-x-2">
+                <Link
+                  to="/login"
+                  className="text-xs font-semibold px-3 py-1.5 text-[#1d1d1f] hover:text-black transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/select-user-type"
+                  className="text-xs font-semibold px-4 py-1.5 bg-[#1d1d1f] hover:bg-[#333336] text-white rounded-full transition-all shadow-xs"
+                >
+                  Register
+                </Link>
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Mobile menu with transition */}
-      <div 
-        className={`md:hidden transition-all duration-300 ease-in-out overflow-hidden ${
-          isMenuOpen ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'
+      {/* Mobile Menu */}
+      <div
+        className={`md:hidden overflow-hidden transition-all duration-300 ${
+          isMenuOpen ? 'max-h-96 border-b border-[#e8e8ed] bg-white' : 'max-h-0'
         }`}
       >
-        <div className="pt-2 pb-3 space-y-1 bg-white shadow-lg rounded-b-lg mx-4 mb-4 border border-t-0 border-gray-100">
+        <div className="px-4 pt-2 pb-6 space-y-2">
+          {/* Mobile Search */}
+          <form onSubmit={handleSearch} className="mb-4">
+            <div className="relative">
+              <MagnifyingGlass
+                size={16}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#86868b]"
+              />
+              <input
+                type="text"
+                placeholder="Search products & services..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-[#f5f5f7] text-xs text-[#1d1d1f] placeholder:text-[#86868b] rounded-full outline-none"
+              />
+            </div>
+          </form>
+
           <Link
             to="/"
             onClick={() => setIsMenuOpen(false)}
-            className="block pl-3 pr-4 py-3 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-primary hover:text-primary transition-colors"
+            className={`flex items-center space-x-3 px-4 py-2.5 rounded-2xl text-xs font-medium transition-all ${
+              isActive('/')
+                ? 'bg-[#f5edf0] text-[#1d1d1f] font-semibold'
+                : 'text-[#6e6e73] hover:bg-[#f5f5f7]'
+            }`}
           >
-            Home
+            <House size={18} weight="duotone" />
+            <span>Home</span>
           </Link>
-          <Link
-            to="/shops"
-            onClick={() => setIsMenuOpen(false)}
-            className="block pl-3 pr-4 py-3 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-primary hover:text-primary transition-colors"
-          >
-            Stores
-          </Link>
+
           <Link
             to="/shop"
             onClick={() => setIsMenuOpen(false)}
-            className="block pl-3 pr-4 py-3 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-primary hover:text-primary transition-colors"
+            className={`flex items-center space-x-3 px-4 py-2.5 rounded-2xl text-xs font-medium transition-all ${
+              isActive('/shop')
+                ? 'bg-[#f5edf0] text-[#1d1d1f] font-semibold'
+                : 'text-[#6e6e73] hover:bg-[#f5f5f7]'
+            }`}
           >
-            All Products
+            <ShoppingBagOpen size={18} weight="duotone" />
+            <span>All Products</span>
           </Link>
-          {user && user.role === 'customer' && (
+
+          <Link
+            to="/shops"
+            onClick={() => setIsMenuOpen(false)}
+            className={`flex items-center space-x-3 px-4 py-2.5 rounded-2xl text-xs font-medium transition-all ${
+              isActive('/shops')
+                ? 'bg-[#f5edf0] text-[#1d1d1f] font-semibold'
+                : 'text-[#6e6e73] hover:bg-[#f5f5f7]'
+            }`}
+          >
+            <Storefront size={18} weight="duotone" />
+            <span>Campus Stores</span>
+          </Link>
+
+          {user && (
             <Link
-              to="/customer"
+              to={user.role === 'admin' ? '/admin' : user.role === 'vendor' ? '/vendor' : '/customer'}
               onClick={() => setIsMenuOpen(false)}
-              className="block pl-3 pr-4 py-3 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-primary hover:text-primary transition-colors"
+              className={`flex items-center space-x-3 px-4 py-2.5 rounded-2xl text-xs font-medium transition-all ${
+                isActive('/customer')
+                  ? 'bg-[#f5edf0] text-[#1d1d1f] font-semibold'
+                  : 'text-[#6e6e73] hover:bg-[#f5f5f7]'
+              }`}
             >
-              Dashboard
+              <SquaresFour size={18} weight="duotone" />
+              <span>Dashboard</span>
             </Link>
           )}
         </div>
