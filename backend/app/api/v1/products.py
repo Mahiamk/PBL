@@ -1,4 +1,5 @@
 from typing import List
+from pathlib import Path
 from fastapi import APIRouter, HTTPException, status, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 import shutil
@@ -58,17 +59,17 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
 @router.post("/upload")
 async def upload_image(file: UploadFile = File(...)):
     # Ensure uploads directory exists
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    upload_dir = Path(settings.effective_upload_dir)
+    upload_dir.mkdir(parents=True, exist_ok=True)
 
-    file_extension = file.filename.split(".")[-1]
+    file_extension = file.filename.split(".")[-1] if "." in file.filename else "jpg"
     file_name = f"{uuid.uuid4()}.{file_extension}"
-    file_path = f"{UPLOAD_DIR}/{file_name}"
+    file_path = upload_dir / file_name
 
-    with open(file_path, "wb") as buffer:
+    with file_path.open("wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    public_base_url = settings.BACKEND_PUBLIC_URL.rstrip("/")
-    return {"url": f"{public_base_url}/uploads/{file_name}"}
+    return {"url": f"/uploads/{file_name}"}
 
 @router.get("/", response_model=List[Product])
 def get_products(store_id: int = None, db: Session = Depends(get_db)):
