@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { getBackendBaseUrl } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import anasImg from '../../assets/barber-shop/barbers/Anas.webp';
 import alaaImg from '../../assets/barber-shop/barbers/Alaa.webp';
@@ -102,114 +103,231 @@ const BookingModal = ({ isOpen, onClose, onConfirm, initialService, preSelectedB
 
   if (!isOpen) return null;
 
-  // Generate time slots from 4:00 PM to 11:00 PM
-  const timeSlots = [
-    '04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM', 
-    '06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM', 
-    '08:00 PM', '08:30 PM', '09:00 PM', '09:30 PM',
-    '10:00 PM', '10:30 PM', '11:00 PM'
-  ];
+  // Afternoon & Evening time slots (4:00 PM to 10:30 PM)
+  const afternoonSlots = ['04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM', '06:00 PM', '06:30 PM'];
+  const eveningSlots = ['07:00 PM', '07:30 PM', '08:00 PM', '08:30 PM', '09:00 PM', '09:30 PM', '10:00 PM', '10:30 PM'];
+
+  // Current selected barber info
+  const selectedBarberObj = barbers.find(b => b.id === selectedBarberId);
+  const selectedServiceObj = availableServices.find(s => s.service_name === serviceType) || haircutStyles.find(s => s.title === serviceType);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full my-auto animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
-        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-          <h3 className="font-bold text-lg text-gray-900">Book Appointment</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1d1d1f]/60 backdrop-blur-sm p-4 overflow-y-auto animate-fade-in">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full my-auto overflow-hidden border border-[#e8e8ed] flex flex-col max-h-[92vh]">
+        {/* Modal Header */}
+        <div className="px-6 py-5 border-b border-[#e8e8ed] flex justify-between items-center bg-[#fbfbfd]">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#1d1d1f] text-white flex items-center justify-center shadow-xs">
+              <Scissors className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#8e6e7d] block">
+                Appointment Reservation
+              </span>
+              <h3 className="font-extrabold text-base text-[#1d1d1f]">Book Haircut Session</h3>
+            </div>
+          </div>
+          <button 
+            onClick={onClose} 
+            className="w-8 h-8 rounded-full flex items-center justify-center text-[#86868b] hover:text-[#1d1d1f] hover:bg-[#ebebef] transition-colors"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
         
-        <div className="p-6 overflow-y-auto">
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-              <User className="w-4 h-4 mr-2 text-gray-900" />
-              Select Barber
-            </label>
-            <select 
-              value={selectedBarberId}
-              onChange={(e) => setSelectedBarberId(Number(e.target.value))}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-gray-900 focus:border-gray-900"
-            >
-              <option value="">Any Professional</option>
-              {barbers.map((barber) => (
-                <option key={barber.id} value={barber.id}>
-                  {barber.name} ({barber.role})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-              <Scissors className="w-4 h-4 mr-2 text-gray-900" />
-              Select Service
-            </label>
-            <select 
-              value={serviceType}
-              onChange={(e) => setServiceType(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-gray-900 focus:border-gray-900"
-            >
-              {availableServices.length > 0 ? (
-                  availableServices.map((service) => (
-                    <option key={service.service_id} value={service.service_name}>
-                      {service.service_name} ({service.service_price ? `${service.service_price} RM` : ''})
-                    </option>
-                  ))
-              ) : (
-                ['Classic Haircut', 'Beard Trim', 'Full Service (Cut + Beard)', 'Hot Towel Shave', ...haircutStyles.map(s => s.title)].map((service) => (
-                    <option key={service} value={service}>
-                      {service}
-                    </option>
-                  ))
-              )}
-            </select>
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-              <CalendarIcon className="w-4 h-4 mr-2 text-gray-900" />
-              Select Date
-            </label>
-            <div className="border rounded-md p-2 flex justify-center bg-white">
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={setDate}
-                className="rounded-md border-0"
-                classNames={{
-                  selected: "bg-gray-900 text-white hover:bg-gray-800 hover:text-white focus:bg-gray-900 focus:text-white",
-                  today: "bg-gray-100 text-gray-900",
-                }}
-                disabled={(date) => date < new Date().setHours(0,0,0,0)} 
-              />
-            </div>
-          </div>
+        {/* Modal Body */}
+        <div className="p-6 overflow-y-auto space-y-6 scrollbar-thin scrollbar-thumb-gray-200">
           
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-              <Clock className="w-4 h-4 mr-2 text-gray-900" />
-              Select Time (4 PM - 11 PM)
-            </label>
+          {/* Step 1: Select Barber */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-[#1d1d1f] flex items-center space-x-1.5">
+                <User className="w-3.5 h-3.5 text-[#8e6e7d]" />
+                <span>1. Select Stylist</span>
+              </label>
+              <span className="text-[10px] text-[#86868b]">Optional</span>
+            </div>
+            
             <div className="grid grid-cols-3 gap-2">
-              {timeSlots.map((t) => (
+              <button
+                type="button"
+                onClick={() => setSelectedBarberId('')}
+                className={`p-3 rounded-2xl border text-left transition-all ${
+                  selectedBarberId === ''
+                    ? 'border-[#1d1d1f] bg-[#1d1d1f] text-white shadow-xs'
+                    : 'border-[#e8e8ed] bg-[#fbfbfd] hover:bg-white text-[#1d1d1f]'
+                }`}
+              >
+                <div className="text-[11px] font-bold block truncate">Any Barber</div>
+                <div className={`text-[9px] ${selectedBarberId === '' ? 'text-white/70' : 'text-[#86868b]'}`}>Next available</div>
+              </button>
+
+              {barbers.map((b) => (
                 <button
-                  key={t}
-                  onClick={() => setTime(t)}
-                  className={`px-2 py-2 text-xs sm:text-sm rounded-md border transition-all ${
-                    time === t 
-                      ? 'bg-gray-900 text-white border-gray-900 shadow-md' 
-                      : 'bg-white text-gray-700 border-gray-200 hover:border-gray-900 hover:text-gray-900'
+                  key={b.id}
+                  type="button"
+                  onClick={() => setSelectedBarberId(b.id)}
+                  className={`p-3 rounded-2xl border text-left transition-all ${
+                    selectedBarberId === b.id
+                      ? 'border-[#1d1d1f] bg-[#1d1d1f] text-white shadow-xs'
+                      : 'border-[#e8e8ed] bg-[#fbfbfd] hover:bg-white text-[#1d1d1f]'
                   }`}
                 >
-                  {t}
+                  <div className="text-[11px] font-bold block truncate">{b.name}</div>
+                  <div className={`text-[9px] truncate ${selectedBarberId === b.id ? 'text-white/70' : 'text-[#86868b]'}`}>{b.role}</div>
                 </button>
               ))}
             </div>
           </div>
+
+          {/* Step 2: Select Service */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-[#1d1d1f] flex items-center space-x-1.5 mb-2">
+              <Scissors className="w-3.5 h-3.5 text-[#8e6e7d]" />
+              <span>2. Select Haircut / Service</span>
+            </label>
+            <div className="relative">
+              <select 
+                value={serviceType}
+                onChange={(e) => setServiceType(e.target.value)}
+                className="w-full px-4 py-3 text-xs font-semibold bg-[#f5f5f7] hover:bg-white border border-[#e8e8ed] rounded-2xl focus:border-[#8e6e7d] focus:bg-white outline-none transition-all appearance-none cursor-pointer text-[#1d1d1f]"
+              >
+                {availableServices.length > 0 ? (
+                    availableServices.map((service) => (
+                      <option key={service.service_id} value={service.service_name}>
+                        {service.service_name} • RM {parseFloat(service.service_price || 15).toFixed(2)}
+                      </option>
+                    ))
+                ) : (
+                  ['Classic Haircut', 'Modern Fade', 'Beard Trim', 'Full Service (Cut + Beard)', 'Hot Towel Shave', ...haircutStyles.map(s => s.title)].map((service) => (
+                      <option key={service} value={service}>
+                        {service}
+                      </option>
+                    ))
+                )}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#86868b] text-xs">
+                ▼
+              </div>
+            </div>
+          </div>
+
+          {/* Step 3: Select Date */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-[#1d1d1f] flex items-center space-x-1.5 mb-2">
+              <CalendarIcon className="w-3.5 h-3.5 text-[#8e6e7d]" />
+              <span>3. Select Date</span>
+            </label>
+            <div className="border border-[#e8e8ed] rounded-3xl p-3 flex justify-center bg-[#fbfbfd] shadow-2xs">
+              <Calendar
+                mode="single"
+                selected={date}
+                onSelect={(newDate) => newDate && setDate(newDate)}
+                className="rounded-2xl border-0"
+                classNames={{
+                  selected: "bg-[#1d1d1f] text-white hover:bg-[#333336] hover:text-white focus:bg-[#1d1d1f] focus:text-white rounded-full font-bold",
+                  today: "bg-[#f5edf0] text-[#8e6e7d] font-bold rounded-full",
+                }}
+                disabled={(d) => d < new Date().setHours(0,0,0,0)} 
+              />
+            </div>
+          </div>
           
-          <Button 
-            className="w-full py-6 text-lg bg-gray-900 hover:bg-black text-white" 
+          {/* Step 4: Select Time Slot */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-[#1d1d1f] flex items-center space-x-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#8e6e7d]" />
+                <span>4. Select Time Slot</span>
+              </label>
+              {time && (
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                  Selected: {time}
+                </span>
+              )}
+            </div>
+
+            {/* Afternoon */}
+            <div className="mb-2">
+              <span className="text-[10px] font-semibold text-[#86868b] block mb-1.5">Afternoon Sessions (4 PM - 7 PM)</span>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                {afternoonSlots.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTime(t)}
+                    className={`py-2 text-[11px] font-bold rounded-xl border transition-all ${
+                      time === t 
+                        ? 'bg-[#1d1d1f] text-white border-[#1d1d1f] shadow-xs' 
+                        : 'bg-[#fbfbfd] text-[#1d1d1f] border-[#e8e8ed] hover:border-[#8e6e7d] hover:bg-white'
+                    }`}
+                  >
+                    {t.replace(':00', '').replace(':30', '.30')}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Evening */}
+            <div>
+              <span className="text-[10px] font-semibold text-[#86868b] block mb-1.5">Evening & Night Sessions (7 PM - 11 PM)</span>
+              <div className="grid grid-cols-4 gap-1.5">
+                {eveningSlots.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTime(t)}
+                    className={`py-2 text-[11px] font-bold rounded-xl border transition-all ${
+                      time === t 
+                        ? 'bg-[#1d1d1f] text-white border-[#1d1d1f] shadow-xs' 
+                        : 'bg-[#fbfbfd] text-[#1d1d1f] border-[#e8e8ed] hover:border-[#8e6e7d] hover:bg-white'
+                    }`}
+                  >
+                    {t.replace(':00', '').replace(':30', '.30')}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Booking Summary Box */}
+          <div className="p-4 bg-[#f5edf0]/60 rounded-2xl border border-[#e6dadf] space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-[#6e6e73]">Service:</span>
+              <span className="font-bold text-[#1d1d1f]">{serviceType}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-[#6e6e73]">Stylist:</span>
+              <span className="font-bold text-[#1d1d1f]">{selectedBarberObj ? `${selectedBarberObj.name} (${selectedBarberObj.role})` : 'Any Available Barber'}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-[#6e6e73]">Appointment Date & Time:</span>
+              <span className="font-bold text-[#1d1d1f]">
+                {date ? date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'Pick a date'} 
+                {time ? ` at ${time}` : ' (Pick time)'}
+              </span>
+            </div>
+            {selectedServiceObj?.service_price && (
+              <div className="pt-2 border-t border-[#e0d0d8] flex justify-between items-center text-xs">
+                <span className="font-bold text-[#1d1d1f]">Estimated Price:</span>
+                <span className="font-extrabold text-[#1d1d1f] text-sm">RM {parseFloat(selectedServiceObj.service_price).toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="p-5 border-t border-[#e8e8ed] bg-[#fbfbfd] flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-3 bg-[#f5f5f7] hover:bg-[#ebebef] text-[#1d1d1f] text-xs font-bold rounded-2xl transition-colors"
+          >
+            Cancel
+          </button>
+          
+          <button 
+            type="button"
             disabled={!date || !time} 
             onClick={() => { 
               const barber = barbers.find(b => b.id === selectedBarberId);
@@ -220,9 +338,14 @@ const BookingModal = ({ isOpen, onClose, onConfirm, initialService, preSelectedB
                 barber: barber
               });
             }}
+            className={`flex-2 py-3 text-xs font-bold rounded-2xl transition-all shadow-xs ${
+              !date || !time 
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                : 'bg-[#1d1d1f] hover:bg-[#333336] text-white active:scale-98'
+            }`}
           >
-            Confirm Booking
-          </Button>
+            {!time ? 'Select Time Slot' : 'Confirm Haircut Booking'}
+          </button>
         </div>
       </div>
     </div>
@@ -378,55 +501,14 @@ const BarberShop = () => {
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">Barber Shop</h1>
         <p className="text-xl text-gray-600">
-          {selectedBarber 
-            ? `Booking with ${selectedBarber.name}` 
-            : 'Choose your professional barber'}
+          Professional Grooming & Haircut Styling
         </p>
       </div>
 
       {!selectedBarber ? (
         <>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-4xl mx-auto">
-          {barbers.map((barber) => (
-            <div 
-              key={barber.id}
-              onClick={() => handleBarberSelect(barber)}
-              className="group cursor-pointer bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 hover:border-primary"
-            >
-              <div className="h-80 overflow-hidden">
-                <img 
-                  src={barber.image} 
-                  alt={barber.name} 
-                  className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
-                />
-              </div>
-              <div className="p-6 text-center">
-                <h3 className="text-2xl font-bold text-gray-900 mb-1">{barber.name}</h3>
-                <p className="text-primary font-medium mb-4">{barber.role}</p>
-                
-                <div className="flex justify-center items-center space-x-1 mb-4 text-yellow-400">
-                  <Star className="fill-current w-5 h-5" />
-                  <span className="text-gray-700 font-bold ml-1">{barber.rating}</span>
-                </div>
-
-                <div className="flex flex-wrap justify-center gap-2">
-                  {barber.specialties.map((specialty, index) => (
-                    <span key={index} className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full">
-                      {specialty}
-                    </span>
-                  ))}
-                </div>
-                
-                <button className="mt-6 w-full py-3 bg-gray-900 text-white rounded-lg font-medium group-hover:bg-primary transition-colors">
-                  Select Barber
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-
         {/* Haircut Styles Section */}
-        <div className="mt-20">
+        <div>
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">Trending Styles</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {services.map((style) => (
@@ -437,7 +519,7 @@ const BarberShop = () => {
               >
                 <div className="aspect-[3/4] overflow-hidden">
                   <img 
-                    src={style.image_url ? (style.image_url.startsWith('http') ? style.image_url : `http://localhost:8000${style.image_url}`) : style1} 
+                    src={style.image_url ? (style.image_url.startsWith('http') ? style.image_url : `${getBackendBaseUrl()}${style.image_url}`) : style1} 
                     alt={style.service_name} 
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
@@ -517,7 +599,7 @@ const BarberShop = () => {
                                     <p className="text-sm text-gray-500">30-45 mins</p>
                                 </div>
                                 <div className="flex items-center">
-                                    <span className="font-bold text-gray-900 mr-4">${25 + (idx * 10)}</span>
+                                    <span className="font-bold text-gray-900 mr-4">RM {25 + (idx * 10)}</span>
                                     <button 
                                         onClick={() => handleBook(service)}
                                         className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-primary transition-colors"
