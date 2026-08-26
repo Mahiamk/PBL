@@ -1,7 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createProduct, fetchCategories, uploadImage, fetchStoreById } from '../../../lib/api';
+import { createProduct, fetchCategories, uploadImage, fetchStoreById, getImageUrl } from '../../../lib/api';
 import { useAuth } from '../../../context/AuthContext';
-import { Camera, HelpCircle, X, Plus, Trash } from 'lucide-react';
+import { 
+  Camera, 
+  Plus, 
+  Trash, 
+  X, 
+  CheckCircle, 
+  WarningCircle, 
+  Image as ImageIcon,
+  Tag,
+  CurrencyDollar,
+  Package
+} from '@phosphor-icons/react';
 
 export default function ProductNewForm({ onSuccess, onCancel, storeId }) {
   const { user } = useAuth();
@@ -33,10 +44,10 @@ export default function ProductNewForm({ onSuccess, onCancel, storeId }) {
   const [addOns, setAddOns] = useState([]);
   const [newAddOn, setNewAddOn] = useState({ name: '', price: '' });
 
-  // New state for handling active upload
+  // Upload State
   const [activeUploadUrl, setActiveUploadUrl] = useState('');
   const [activeColor, setActiveColor] = useState('');
-  const [productImages, setProductImages] = useState([]); // Array of { image_url, color }
+  const [productImages, setProductImages] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -51,7 +62,6 @@ export default function ProductNewForm({ onSuccess, onCancel, storeId }) {
       fetchCategories(currentStoreId).then(setCategories).catch(console.error);
       fetchStoreById(currentStoreId).then(setStoreInfo).catch(console.error);
     } else {
-      // Fallback for admin or if no storeId yet
       fetchCategories().then(setCategories).catch(console.error);
     }
   }, [storeId, user]);
@@ -65,31 +75,22 @@ export default function ProductNewForm({ onSuccess, onCancel, storeId }) {
   };
   
   const handleAddOnAdd = () => {
-      if(newAddOn.name && newAddOn.price) {
-          setAddOns([...addOns, { ...newAddOn, price: parseFloat(newAddOn.price) }]);
-          setNewAddOn({ name: '', price: '' });
-      }
-  };
-
-  const handleRemoveAddOn = (index) => {
-      setAddOns(addOns.filter((_, i) => i !== index));
-  };
-
-  const handleAddImage = () => {
-    if (imageUrl) {
-      setFormData(prev => ({ ...prev, images: [...prev.images, imageUrl] }));
-      setImageUrl('');
+    if(newAddOn.name && newAddOn.price) {
+      setAddOns([...addOns, { ...newAddOn, price: parseFloat(newAddOn.price) }]);
+      setNewAddOn({ name: '', price: '' });
     }
   };
 
-  // 1. Upload the file first
+  const handleRemoveAddOn = (index) => {
+    setAddOns(addOns.filter((_, i) => i !== index));
+  };
+
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (file) {
       try {
         const data = await uploadImage(file);
         setActiveUploadUrl(data.url);
-        // Reset color input so they have to type it
         setActiveColor(''); 
       } catch (err) {
         console.error("Upload failed", err);
@@ -98,30 +99,20 @@ export default function ProductNewForm({ onSuccess, onCancel, storeId }) {
     }
   };
 
-  // 2. Confirm the image + color pair
-  const confirmImageAdd = () => {
+  const handleConfirmImageWithColor = () => {
     if (!activeUploadUrl) return;
+    const finalColor = activeColor.trim() ? activeColor.trim() : 'Default';
     
-    // Auto-fill color for Drink Shops if not specified
-    let colorToUse = activeColor;
-    if (isDrinkShop && !activeColor.trim()) {
-        colorToUse = "General";
-    }
-
-    if (!colorToUse.trim()) {
-      alert("Please enter a color for this image.");
-      return;
-    }
-
     setProductImages(prev => [
-      ...prev, 
-      { image_url: activeUploadUrl, color: colorToUse, is_main: prev.length === 0 }
+      ...prev,
+      {
+        image_url: activeUploadUrl,
+        color: finalColor,
+        is_main: prev.length === 0
+      }
     ]);
-    
-    // Reset temporary state
     setActiveUploadUrl('');
     setActiveColor('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const removeImage = (index) => {
@@ -132,310 +123,279 @@ export default function ProductNewForm({ onSuccess, onCancel, storeId }) {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
-      if (productImages.length === 0) {
-        throw new Error("Please add at least one image.");
-      }
-      
-      let customOptionsJson = null;
+      let customOptions = null;
       if (isDrinkShop) {
-          customOptionsJson = JSON.stringify({
-              sweetness: hasSweetness,
-              addOns: addOns
-          });
+        customOptions = {
+          sweetness_levels: hasSweetness ? ["Normal", "Less Sweet", "No Sugar"] : [],
+          add_ons: addOns
+        };
       }
 
       const payload = {
         ...formData,
         product_price: parseFloat(formData.product_price),
-        weight: formData.weight ? parseFloat(formData.weight) : null,
-        category_id: parseInt(formData.category_id),
-        stock_quantity: parseInt(formData.stock_quantity) || 0,
-        store_id: parseInt(formData.store_id || storeId || user?.storeId || 1),
-        // Send the structured image data
+        stock_quantity: formData.stock_quantity ? parseInt(formData.stock_quantity, 10) : 0,
+        weight: formData.weight ? parseFloat(formData.weight) : 0,
+        category_id: formData.category_id ? parseInt(formData.category_id, 10) : null,
+        store_id: parseInt(formData.store_id || user?.storeId, 10),
+        images: productImages.map(img => img.image_url),
+        image_url: productImages.length > 0 ? productImages[0].image_url : null,
         product_images: productImages,
-        custom_options: customOptionsJson
+        custom_options: customOptions
       };
 
       await createProduct(payload);
       if (onSuccess) onSuccess();
     } catch (err) {
-      setError(err.message || 'Failed to create product');
+      console.error(err);
+      setError(err.response?.data?.detail || 'Failed to create product');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="bg-white rounded-lg p-6 max-h-[90vh] overflow-y-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold">New Product</h2>
-        <button onClick={onCancel}><X className="h-6 w-6" /></button>
+    <div className="bg-white rounded-3xl border border-[#e8e8ed] shadow-xs p-6 md:p-8 animate-fade-in max-w-4xl mx-auto">
+      <div className="flex justify-between items-center pb-6 border-b border-[#e8e8ed] mb-6">
+        <div>
+          <span className="text-[10px] font-bold text-[#8e6e7d] uppercase tracking-widest block mb-1">
+            New Listing
+          </span>
+          <h2 className="text-xl font-black text-[#1d1d1f] tracking-tight">Create Product / Item</h2>
+          <p className="text-xs text-[#6e6e73]">Add catalog items with photos, variants, stock, and pricing.</p>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="p-2 text-[#86868b] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] rounded-full transition-colors"
+        >
+          <X size={18} weight="bold" />
+        </button>
       </div>
 
       {error && (
-        <div className="mb-4 bg-red-50 text-red-600 p-3 rounded-md text-sm">
-          {error}
+        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-semibold flex items-center space-x-2">
+          <WarningCircle size={18} weight="fill" className="text-rose-600 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-2 gap-6">
-          {/* Left Column - Essentials */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left Column: Basic Information */}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Product Name</label>
+              <label className="block text-xs font-semibold text-[#1d1d1f] mb-1.5">Product Name *</label>
               <input
                 type="text"
                 name="product_name"
                 required
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3.5 py-2.5 border border-[#e8e8ed] rounded-2xl text-xs bg-[#f5f5f7] focus:bg-white focus:outline-none focus:border-[#8e6e7d] transition-all"
+                placeholder="e.g. AIU Heritage Navy Hoodie"
                 value={formData.product_name}
                 onChange={handleChange}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Price</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-gray-500">$</span>
-                  <input
-                    type="number"
-                    name="product_price"
-                    required
-                    step="0.01"
-                    className="w-full pl-8 p-2 border rounded"
-                    value={formData.product_price}
-                    onChange={handleChange}
-                  />
-                </div>
+                <label className="block text-xs font-semibold text-[#1d1d1f] mb-1.5">Price (RM) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  name="product_price"
+                  required
+                  className="w-full px-3.5 py-2.5 border border-[#e8e8ed] rounded-2xl text-xs bg-[#f5f5f7] focus:bg-white focus:outline-none focus:border-[#8e6e7d] transition-all font-bold"
+                  placeholder="0.00"
+                  value={formData.product_price}
+                  onChange={handleChange}
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Stock</label>
+                <label className="block text-xs font-semibold text-[#1d1d1f] mb-1.5">Stock Quantity</label>
                 <input
                   type="number"
                   name="stock_quantity"
-                  required
-                  className="w-full p-2 border rounded"
+                  className="w-full px-3.5 py-2.5 border border-[#e8e8ed] rounded-2xl text-xs bg-[#f5f5f7] focus:bg-white focus:outline-none focus:border-[#8e6e7d] transition-all"
+                  placeholder="25"
                   value={formData.stock_quantity}
                   onChange={handleChange}
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">Category</label>
-              <select
-                name="category_id"
-                required
-                className="w-full p-2 border rounded"
-                value={formData.category_id}
-                onChange={handleChange}
-              >
-                <option value="">Select Category</option>
-                {categories.map(cat => (
-                  <option key={cat.category_id} value={cat.category_id}>
-                    {cat.category_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {!isDrinkShop && (
-             <div>
-              <label className="block text-sm font-medium mb-1">SKU</label>
-              <input
-                type="text"
-                name="sku"
-                className="w-full p-2 border rounded"
-                value={formData.sku}
-                onChange={handleChange}
-              />
-            </div>
-            )}
-            
-            {isDrinkShop && (
-                <div className="bg-yellow-50 p-4 rounded border border-yellow-200">
-                    <h3 className="font-semibold text-yellow-800 mb-3">Drink Configuration</h3>
-                    
-                    <div className="mb-4">
-                        <label className="flex items-center gap-2">
-                            <input 
-                                type="checkbox" 
-                                checked={hasSweetness}
-                                onChange={(e) => setHasSweetness(e.target.checked)}
-                                className="w-4 h-4 text-blue-600 rounded"
-                            />
-                            <span className="text-sm font-medium">Enable Sweetness Levels</span>
-                        </label>
-                        <p className="text-xs text-gray-500 ml-6">Adds (Original, Sweet, Less Sweet, No Sugar)</p>
-                    </div>
-                    
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Available Add-ons</label>
-                        <div className="flex gap-2 mb-2">
-                            <input 
-                                placeholder="Name (e.g. Cheese)" 
-                                className="flex-1 p-2 border rounded text-sm"
-                                value={newAddOn.name}
-                                onChange={(e) => setNewAddOn({...newAddOn, name: e.target.value})}
-                            />
-                            <input 
-                                type="number" 
-                                placeholder="Price" 
-                                className="w-24 p-2 border rounded text-sm"
-                                value={newAddOn.price}
-                                onChange={(e) => setNewAddOn({...newAddOn, price: e.target.value})}
-                            />
-                            <button type="button" onClick={handleAddOnAdd} className="bg-green-600 text-white p-2 rounded hover:bg-green-700">
-                                <Plus className="w-4 h-4" />
-                            </button>
-                        </div>
-                        
-                        <ul className="space-y-1">
-                            {addOns.map((addon, idx) => (
-                                <li key={idx} className="flex justify-between bg-white p-2 rounded text-sm border shadow-sm">
-                                    <span>{addon.name} (+RM {addon.price.toFixed(2)})</span>
-                                    <button type="button" onClick={() => handleRemoveAddOn(idx)} className="text-red-500 hover:text-red-700">
-                                        <X className="w-4 h-4" />
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-            )}
-          </div>
-
-          {/* Right Column - Images & Colors */}
-          <div className="space-y-4">
-             <div>
-              <label className="block text-sm font-medium mb-2">Product Images & Colors</label>
-              
-              {/* Image Input Area */}
-              <div className="p-4 border-2 border-dashed rounded-lg bg-gray-50 mb-4">
-                {!activeUploadUrl ? (
-                  <div className="text-center">
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileSelect}
-                      className="hidden"
-                      accept="image/*"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-blue-500"
-                    >
-                      <Camera className="h-8 w-8 mb-2" />
-                      <span className="text-sm">Click to upload image</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    <img src={activeUploadUrl} alt="Preview" className="h-32 w-auto object-contain mx-auto rounded" />
-                    
-                    {!isDrinkShop ? (
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                        Select Color for this Image <span className="text-red-500">*</span>
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="e.g. Red, Blue, Matte Black"
-                          value={activeColor}
-                          onChange={(e) => setActiveColor(e.target.value)}
-                          className="flex-1 p-2 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={confirmImageAdd}
-                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-                        >
-                          Add
-                        </button>
-                      </div>
-                    </div>
-                    ) : (
-                        <button
-                          type="button"
-                          onClick={() => { setActiveColor('General'); confirmImageAdd(); }} // Hack to trigger add but confirmImageAdd handles 'General' if called directly, but here we invoke it. 
-                          // Actually confirmImageAdd checks activeColor state or isDrinkShop logic. We just need to trigger it.
-                          // Wait, confirmImageAdd checks isDrinkShop. So we just need a button to "Confirm Image".
-                          // onClick={confirmImageAdd}
-                          className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-                        >
-                          Confirm Image Use
-                        </button>
-                    )}
-                    <button 
-                      type="button" 
-                      onClick={() => { setActiveUploadUrl(''); setActiveColor(''); }}
-                      className="text-xs text-red-500 underline text-center"
-                    >
-                      Cancel this upload
-                    </button>
-                  </div>
-                )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#1d1d1f] mb-1.5">SKU Code</label>
+                <input
+                  type="text"
+                  name="sku"
+                  className="w-full px-3.5 py-2.5 border border-[#e8e8ed] rounded-2xl text-xs bg-[#f5f5f7] focus:bg-white focus:outline-none focus:border-[#8e6e7d] transition-all"
+                  placeholder="AIU-PRD-001"
+                  value={formData.sku}
+                  onChange={handleChange}
+                />
               </div>
-
-              {/* List of Added Images */}
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {productImages.map((img, index) => (
-                  <div key={index} className="flex items-center gap-3 p-2 border rounded bg-white shadow-sm">
-                    <img src={img.image_url} alt="" className="h-12 w-12 object-cover rounded" />
-                    <div className="flex-1">
-                      <span className="text-sm font-medium block">{img.color}</span>
-                      {img.is_main && <span className="text-xs text-green-600 bg-green-50 px-1 rounded">Main Image</span>}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="p-1 hover:bg-red-50 text-red-500 rounded"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-                {productImages.length === 0 && (
-                  <div className="text-sm text-gray-400 text-center py-2">
-                    No images added yet.
-                  </div>
-                )}
+              <div>
+                <label className="block text-xs font-semibold text-[#1d1d1f] mb-1.5">Category</label>
+                <select
+                  name="category_id"
+                  className="w-full px-3.5 py-2.5 border border-[#e8e8ed] rounded-2xl text-xs bg-[#f5f5f7] focus:bg-white focus:outline-none focus:border-[#8e6e7d] transition-all cursor-pointer"
+                  value={formData.category_id}
+                  onChange={handleChange}
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((c) => (
+                    <option key={c.category_id} value={c.category_id}>
+                      {c.category_name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Description</label>
+              <label className="block text-xs font-semibold text-[#1d1d1f] mb-1.5">Description</label>
               <textarea
                 name="product_desc"
                 rows="4"
-                className="w-full p-2 border rounded"
+                className="w-full px-3.5 py-2.5 border border-[#e8e8ed] rounded-2xl text-xs bg-[#f5f5f7] focus:bg-white focus:outline-none focus:border-[#8e6e7d] transition-all"
+                placeholder="Details, specifications, ingredients, or sizing guide..."
                 value={formData.product_desc}
                 onChange={handleChange}
               ></textarea>
             </div>
           </div>
+
+          {/* Right Column: Media Upload & Variants */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-[#1d1d1f] mb-1.5">Product Photos</label>
+              
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*"
+                onChange={handleFileSelect}
+              />
+
+              {!activeUploadUrl ? (
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-[#e8e8ed] rounded-3xl p-6 text-center cursor-pointer hover:border-[#8e6e7d] hover:bg-[#fbfbfd] transition-all"
+                >
+                  <Camera size={32} weight="duotone" className="mx-auto text-[#8e6e7d] mb-2" />
+                  <span className="text-xs font-bold text-[#1d1d1f] block">Upload Product Image</span>
+                  <span className="text-[10px] text-[#86868b]">PNG, JPG, WebP up to 5MB</span>
+                </div>
+              ) : (
+                <div className="p-4 bg-[#f5edf0]/40 rounded-3xl border border-[#e8e8ed] space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <img 
+                      src={getImageUrl(activeUploadUrl)} 
+                      alt="Uploaded" 
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = '/assets/bowl-white.jpg';
+                      }}
+                      className="w-14 h-14 object-cover rounded-2xl border border-[#e8e8ed]" 
+                    />
+                    <div className="flex-1">
+                      <span className="text-xs font-bold text-[#1d1d1f] block">Image Uploaded</span>
+                      <input 
+                        type="text" 
+                        placeholder="Color or Variant tag (e.g. Navy, Black)" 
+                        value={activeColor}
+                        onChange={(e) => setActiveColor(e.target.value)}
+                        className="w-full mt-1 px-3 py-1.5 border border-[#e8e8ed] rounded-xl text-xs bg-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end space-x-2">
+                    <button 
+                      type="button" 
+                      onClick={() => setActiveUploadUrl('')} 
+                      className="px-3 py-1 text-xs font-semibold text-[#86868b] hover:text-[#1d1d1f]"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={handleConfirmImageWithColor}
+                      className="px-3 py-1 bg-[#1d1d1f] text-white rounded-full text-xs font-semibold hover:bg-[#333336]"
+                    >
+                      Add to Gallery
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Gallery List */}
+              {productImages.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 mt-3">
+                  {productImages.map((img, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 bg-[#f5f5f7] rounded-2xl border border-[#e8e8ed]">
+                      <div className="flex items-center space-x-2 truncate">
+                        <img 
+                          src={getImageUrl(img.image_url)} 
+                          alt="" 
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = '/assets/bowl-white.jpg';
+                          }}
+                          className="w-8 h-8 rounded-xl object-cover" 
+                        />
+                        <span className="text-xs font-semibold text-[#1d1d1f] truncate">{img.color}</span>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => removeImage(idx)} 
+                        className="text-[#86868b] hover:text-rose-600 p-1"
+                      >
+                        <Trash size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Drink custom options */}
+            {isDrinkShop && (
+              <div className="p-4 bg-[#fbfbfd] rounded-3xl border border-[#e8e8ed] space-y-3">
+                <span className="text-xs font-bold text-[#1d1d1f] block">Beverage Customizations</span>
+                <label className="flex items-center space-x-2 text-xs text-[#6e6e73] cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={hasSweetness} 
+                    onChange={(e) => setHasSweetness(e.target.checked)}
+                    className="rounded text-[#1d1d1f]"
+                  />
+                  <span>Enable Sweetness Levels (Normal / Less / No Sugar)</span>
+                </label>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-6 border-t">
+        {/* Action Footer */}
+        <div className="flex justify-end items-center space-x-3 pt-6 border-t border-[#e8e8ed]">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+            className="px-5 py-2.5 text-xs font-semibold text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] rounded-full transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            className="px-6 py-2.5 bg-[#1d1d1f] text-white rounded-full text-xs font-semibold hover:bg-[#333336] transition-all shadow-xs disabled:opacity-50"
           >
-            {loading ? 'Creating Product...' : 'Create Product'}
+            {loading ? 'Creating Listing...' : 'Publish Product'}
           </button>
         </div>
       </form>
