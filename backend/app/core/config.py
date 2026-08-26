@@ -1,9 +1,18 @@
 import os
+from pathlib import Path
 
-from pydantic_settings import BaseSettings
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=(".env", "../.env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
     # API Settings
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "AIU Microstore"
@@ -30,10 +39,13 @@ class Settings(BaseSettings):
     @property
     def effective_upload_dir(self) -> str:
         if os.getenv("UPLOAD_DIR"):
-            return os.getenv("UPLOAD_DIR")
+            return str(Path(os.getenv("UPLOAD_DIR")).resolve())
         if os.getenv("VERCEL") or os.getenv("NOW_REGION"):
             return "/tmp/uploads"
-        return self.UPLOAD_DIR
+        backend_dir = Path(__file__).resolve().parent.parent.parent
+        uploads_path = (backend_dir / "uploads").resolve()
+        uploads_path.mkdir(parents=True, exist_ok=True)
+        return str(uploads_path)
 
     @property
     def UPLOAD_DIR_EFFECTIVE(self) -> str:
@@ -50,14 +62,44 @@ class Settings(BaseSettings):
 
         return "sqlite:///./test.db"
 
+    @property
+    def DATABASE_ENGINE_KWARGS(self) -> dict:
+        if self.DATABASE_URL.startswith("sqlite"):
+            return {
+                "connect_args": {
+                    "check_same_thread": False,
+                }
+            }
+        if "mysqlconnector" in self.DATABASE_URL:
+            return {
+                "connect_args": {
+                    "ssl_disabled": False,
+                }
+            }
+        return {}
+
     def _normalize_database_url(self, database_url: str) -> str:
         if database_url.startswith("mysql://"):
-            return database_url.replace("mysql://", "mysql+mysqlconnector://", 1)
+            normalized = database_url.replace("mysql://", "mysql+mysqlconnector://", 1)
+            parsed = urlsplit(normalized)
+            query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+            query.pop("ssl-mode", None)
+            if parsed.query and not query:
+                return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", parsed.fragment))
+            return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query), parsed.fragment))
         return database_url
 
     @property
     def CORS_ORIGINS_LIST(self) -> list[str]:
-        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+        defaults = [
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:5174",
+            "http://localhost:3000",
+        ]
+        configured = [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+        return list(dict.fromkeys(defaults + configured))
 
 
 settings = Settings()
