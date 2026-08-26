@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchServices, deleteService, updateService } from '../../../../lib/api';
+import { fetchServices, deleteService, updateService, getImageUrl } from '../../../../lib/api';
 import { useAuth } from '../../../../context/AuthContext';
 import { Search, Filter, MoreHorizontal, Trash2, Edit2, Save, X, CheckCircle, AlertCircle } from 'lucide-react';
 
@@ -132,7 +132,15 @@ const ServiceManager = () => {
                   ) : (
                     <div className="flex items-center">
                       {service.image_url && (
-                        <img className="h-10 w-10 rounded-full object-cover mr-3" src={service.image_url} alt="" />
+                        <img 
+                          className="h-10 w-10 rounded-full object-cover mr-3" 
+                          src={getImageUrl(service.image_url)} 
+                          alt={service.service_name} 
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = '/assets/bowl-white.jpg';
+                          }}
+                        />
                       )}
                       <div className="text-sm font-medium text-gray-900">{service.service_name}</div>
                     </div>
@@ -148,7 +156,7 @@ const ServiceManager = () => {
                       className="border rounded px-2 py-1 w-24"
                     />
                   ) : (
-                    <div className="text-sm text-gray-900">${service.service_price}</div>
+                    <div className="text-sm font-semibold text-gray-900">RM {Number(service.service_price || 0).toFixed(2)}</div>
                   )}
                 </td>
                 <td className="px-6 py-4">
@@ -169,7 +177,7 @@ const ServiceManager = () => {
                       name="status"
                       value={editForm.status}
                       onChange={handleInputChange}
-                      className="border rounded px-2 py-1"
+                      className="border border-[#e8e8ed] rounded-full px-3 py-1 bg-[#f5f5f7] text-xs font-semibold text-[#1d1d1f] outline-none"
                     >
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
