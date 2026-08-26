@@ -28,6 +28,11 @@ class Store(Base):
     store_name = Column("STORE_NAME", String(100), nullable=False)
     store_type = Column("STORE_TYPE", String(50))
     image_url = Column("IMAGE_URL", String(255), nullable=True)
+    working_hours = Column("WORKING_HOURS", String(100), nullable=True)
+    location = Column("LOCATION", String(255), nullable=True)
+    phone = Column("PHONE", String(50), nullable=True)
+    description = Column("DESCRIPTION", Text, nullable=True)
+    status = Column("STATUS", String(50), default="active")
 
     products = relationship("Product", back_populates="store")
     categories = relationship("Category", back_populates="store")
