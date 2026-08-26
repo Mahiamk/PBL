@@ -1,7 +1,8 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, ShoppingBagOpen, ArrowRight, ShoppingCart } from '@phosphor-icons/react';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
+import { getImageUrl } from '../lib/api';
 import thermosYellow from '../assets/thermos-yellow.jpg';
 import thermosBlack from '../assets/thermos-black.jpg';
 import vaseGreen from '../assets/vase-green.jpg';
@@ -29,81 +30,122 @@ const CartDrawer = () => {
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
-      <div className="absolute inset-0transition-opacity" onClick={closeCart}></div>
-      <div className="fixed inset-y-0 right-0 pl-10 max-w-full flex">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-[#1d1d1f]/40 backdrop-blur-xs transition-opacity"
+        onClick={closeCart}
+      />
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
         <div className="w-screen max-w-md">
-          <div className="h-full flex flex-col bg-white shadow-xl overflow-y-scroll">
-            <div className="flex-1 py-6 overflow-y-auto px-4 sm:px-6">
-              <div className="flex items-start justify-between">
-                <h2 className="text-lg font-medium text-gray-900">Your Cart</h2>
-                <div className="ml-3 h-7 flex items-center">
-                  <button
-                    type="button"
-                    className="-m-2 p-2 text-gray-400 hover:text-gray-500"
-                    onClick={closeCart}
-                  >
-                    <span className="sr-only">Close panel</span>
-                    <X className="h-6 w-6" aria-hidden="true" />
-                  </button>
+          <div className="h-full flex flex-col bg-white shadow-2xl overflow-y-auto">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-[#e8e8ed] flex items-center justify-between bg-[#fbfbfd]">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-full bg-[#f5edf0] text-[#6b535d] flex items-center justify-center">
+                  <ShoppingBagOpen size={18} weight="duotone" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-[#1d1d1f]">Review Bag</h2>
+                  <span className="text-xs text-[#86868b]">{cartCount} items</span>
                 </div>
               </div>
+              <button
+                type="button"
+                className="p-2 rounded-full text-[#86868b] hover:text-[#1d1d1f] hover:bg-[#f5edf0] transition-colors active:scale-95"
+                onClick={closeCart}
+                aria-label="Close cart drawer"
+              >
+                <X size={18} weight="bold" />
+              </button>
+            </div>
 
-              <div className="mt-8">
+            {/* Cart Items List */}
+            <div className="flex-1 py-6 px-6 overflow-y-auto">
+              {cart.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-[#f5edf0] text-[#6b535d] flex items-center justify-center mb-4">
+                    <ShoppingCart size={28} weight="duotone" />
+                  </div>
+                  <h3 className="text-sm font-bold text-[#1d1d1f] mb-1">Your bag is empty</h3>
+                  <p className="text-xs text-[#86868b] max-w-[200px]">
+                    Explore the catalog and add campus items to your bag.
+                  </p>
+                </div>
+              ) : (
                 <div className="flow-root">
-                  <ul className="-my-6 divide-y divide-gray-200">
+                  <ul className="-my-5 divide-y divide-[#f0eaed]">
                     {cart.map((product) => {
-                        const image = product.image_url || (product.product_id === 6 
-                            ? (product.selectedOption === 'Fade' ? barberFade : barberCut)
-                            : (imageMap[product.product_id] || bowlWhite));
-                        
-                        return (
-                          <li key={product.product_id} className="py-6 flex">
-                            <div className="flex-shrink-0 w-24 h-24 border border-gray-200 rounded-md overflow-hidden">
-                              <img
-                                src={image}
-                                alt={product.product_name}
-                                className="w-full h-full object-center object-cover"
-                              />
-                            </div>
+                      const rawImage =
+                        product.image_url ||
+                        (product.product_id === 6
+                          ? product.selectedOption === 'Fade'
+                            ? barberFade
+                            : barberCut
+                          : imageMap[product.product_id] || bowlWhite);
+                      const image = getImageUrl(rawImage, bowlWhite);
 
-                            <div className="ml-4 flex-1 flex flex-col">
-                              <div>
-                                <div className="flex justify-between text-base font-medium text-gray-900">
-                                  <h3>
-                                    <a href="#">{product.product_name}</a>
-                                  </h3>
-                                  <p className="ml-4">${product.product_price.toFixed(2)}</p>
-                                </div>
-                                <p className="mt-1 text-sm text-gray-500">
-                                    {product.product_id === 6 ? 'Style' : 'Color'}: {product.selectedOption || 'Default'}
+                      return (
+                        <li key={product.cartId || product.product_id} className="py-5 flex space-x-4">
+                          <div className="shrink-0 w-20 h-20 rounded-2xl bg-[#f5f5f7] border border-[#e8e8ed] overflow-hidden">
+                            <img
+                              src={image}
+                              alt={product.product_name}
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = bowlWhite;
+                              }}
+                              className="w-full h-full object-center object-cover"
+                            />
+                          </div>
+
+                          <div className="flex-1 flex flex-col justify-between">
+                            <div>
+                              <div className="flex justify-between text-xs font-bold text-[#1d1d1f]">
+                                <h3 className="line-clamp-1">{product.product_name}</h3>
+                                <p className="ml-3 font-extrabold text-[#1d1d1f]">
+                                  RM {(Number(product.product_price) * Number(product.quantity)).toFixed(2)}
                                 </p>
                               </div>
-                              <div className="flex-1 flex items-end justify-between text-sm">
-                                <p className="text-gray-500">Qty {product.quantity}</p>
-                              </div>
+                              <p className="mt-1 text-xs text-[#86868b]">
+                                {product.product_id === 6 ? 'Style' : 'Option'}:{' '}
+                                <span className="font-medium text-[#1d1d1f]">
+                                  {product.selectedOption || 'Default'}
+                                </span>
+                              </p>
                             </div>
-                          </li>
-                        );
+                            <div className="flex items-center justify-between text-xs text-[#86868b] pt-2">
+                              <span className="font-medium">Qty: {product.quantity}</span>
+                              <span>
+                                RM {Number(product.product_price).toFixed(2)} each
+                              </span>
+                            </div>
+                          </div>
+                        </li>
+                      );
                     })}
                   </ul>
                 </div>
-              </div>
+              )}
             </div>
 
-            <div className="border-t border-gray-200 py-6 px-4 sm:px-6">
-              <div className="flex justify-between text-base font-medium text-gray-900">
-                <p>Subtotal:</p>
-                <p>${cartTotal.toFixed(2)}</p>
-              </div>
-              <div className="mt-6">
+            {/* Footer Summary */}
+            {cart.length > 0 && (
+              <div className="border-t border-[#e8e8ed] py-6 px-6 bg-[#fbfbfd] space-y-4">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-[#86868b] font-medium">Subtotal</span>
+                  <span className="text-lg font-extrabold text-[#1d1d1f]">
+                    RM {cartTotal.toFixed(2)}
+                  </span>
+                </div>
                 <button
                   onClick={handleViewCart}
-                  className="w-full flex justify-center items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-primary hover:bg-secondary"
+                  className="w-full flex items-center justify-center space-x-2 py-3.5 px-6 rounded-full bg-[#1d1d1f] hover:bg-[#333336] active:scale-95 text-white font-medium text-xs shadow-sm transition-all duration-200"
                 >
-                  View Cart ({cartCount})
+                  <span>Checkout</span>
+                  <ArrowRight size={14} weight="bold" />
                 </button>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
