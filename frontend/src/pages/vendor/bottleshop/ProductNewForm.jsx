@@ -160,7 +160,7 @@ export default function ProductNewForm({ onSuccess, onCancel, storeId }) {
             <label className="block text-sm font-medium text-gray-700">Price *</label>
             <div className="mt-1 relative rounded-md shadow-sm">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">$</span>
+                <span className="text-gray-500 sm:text-sm font-semibold">RM</span>
               </div>
               <input
                 type="number"
@@ -168,7 +168,7 @@ export default function ProductNewForm({ onSuccess, onCancel, storeId }) {
                 required
                 min="0"
                 step="0.01"
-                className="block w-full pl-7 border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                className="block w-full pl-11 border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 sm:text-sm"
                 value={formData.product_price}
                 onChange={handleChange}
               />
