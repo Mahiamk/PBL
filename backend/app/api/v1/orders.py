@@ -145,6 +145,15 @@ def create_order(order_data: OrderCreate, current_user: User = Depends(get_curre
         # Final commit for notifications
         db.commit()
 
+        for order in created_orders:
+            db.refresh(order)
+            vendor = db.query(models.Vendor).filter(models.Vendor.store_id == order.store_id).first()
+            store = db.query(models.Store).filter(models.Store.store_id == order.store_id).first()
+            if vendor:
+                order.vendor_user_id = vendor.user_id
+            if store:
+                order.store_name = store.store_name
+
         return created_orders
         
     except Exception as e:
