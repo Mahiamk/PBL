@@ -1,10 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchProductById } from '../lib/api';
+import { fetchProductById, getImageUrl } from '../lib/api';
 import { useCart } from '../context/CartContext';
 import { useOrder } from '../context/OrderContext';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, ShoppingCart, Package, Tag, Check } from 'lucide-react';
+import {
+  ArrowLeft,
+  ShoppingCart,
+  Lightning,
+  ShieldCheck,
+  Check,
+  Truck,
+  Minus,
+  Plus,
+  CheckCircle,
+} from '@phosphor-icons/react';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -15,11 +25,11 @@ const ProductDetail = () => {
   const { addOrder } = useOrder();
   const { user } = useAuth();
   const [quantity, setQuantity] = useState(1);
-  
+
   // Drink Customization State
   const [customOptions, setCustomOptions] = useState(null);
   const [sweetness, setSweetness] = useState('Original');
-  const [selectedAddOns, setSelectedAddOns] = useState([]); // [{name, price}]
+  const [selectedAddOns, setSelectedAddOns] = useState([]);
   const [specialNotes, setSpecialNotes] = useState('');
 
   // Color State
@@ -41,73 +51,70 @@ const ProductDetail = () => {
     'Orange': '#FFA500',
     'Brown': '#A52A2A',
     'Beige': '#F5F5DC',
-    'Maroon': '#800000'
+    'Maroon': '#800000',
   };
 
   useEffect(() => {
     fetchProductById(id)
       .then((data) => {
         setProduct(data);
-        
+
         // Parse Custom Options (For Drink Shops)
         if (data.custom_options) {
-            try {
-                const parsed = JSON.parse(data.custom_options);
-                setCustomOptions(parsed);
-                // Reset defaults
-                setSweetness('Original'); 
-                setSelectedAddOns([]);
-            } catch (e) {
-                console.error("Failed to parse custom options", e);
-            }
+          try {
+            const parsed = JSON.parse(data.custom_options);
+            setCustomOptions(parsed);
+            setSweetness('Original');
+            setSelectedAddOns([]);
+          } catch (e) {
+            console.error("Failed to parse custom options", e);
+          }
         }
-        
+
         let foundColors = [];
         let map = {};
 
         // 1. Check Product Images (Backend Support)
         if (data.images_rel && Array.isArray(data.images_rel) && data.images_rel.length > 0) {
-            data.images_rel.forEach(img => {
-                if (img.color) {
-                    if (!foundColors.includes(img.color)) {
-                        foundColors.push(img.color);
-                    }
-                    // Prioritize manually uploaded images for colors
-                    // If multiple images for same color, use the one marked is_main or first one
-                    if (!map[img.color] || img.is_main) {
-                        map[img.color] = img.image_url;
-                    }
-                }
-            });
+          data.images_rel.forEach((img) => {
+            if (img.color) {
+              if (!foundColors.includes(img.color)) {
+                foundColors.push(img.color);
+              }
+              if (!map[img.color] || img.is_main) {
+                map[img.color] = img.image_url;
+              }
+            }
+          });
         }
 
         // 2. Parse Colors from Description (Legacy/Fallback)
         if (data.product_desc) {
-            const match = data.product_desc.match(/<!-- COLORS:(.*?) -->/);
-            if (match && match[1]) {
-                try {
-                    const parsedColors = JSON.parse(match[1]);
-                    if (Array.isArray(parsedColors)) {
-                       parsedColors.forEach(c => {
-                           if (!foundColors.includes(c)) foundColors.push(c);
-                       });
-                    }
-                } catch (e) {
-                    console.error("Failed to parse colors", e);
-                }
+          const match = data.product_desc.match(/<!-- COLORS:(.*?) -->/);
+          if (match && match[1]) {
+            try {
+              const parsedColors = JSON.parse(match[1]);
+              if (Array.isArray(parsedColors)) {
+                parsedColors.forEach((c) => {
+                  if (!foundColors.includes(c)) foundColors.push(c);
+                });
+              }
+            } catch (e) {
+              console.error("Failed to parse colors", e);
             }
+          }
         }
 
         // 3. Defaults for Clothing Store if no colors found
         if (foundColors.length === 0 && data.store_id === 7) {
-            foundColors = ['White', 'Black', 'Red', 'Blue', 'Green', 'Gray'];
+          foundColors = ['White', 'Black', 'Red', 'Blue', 'Green', 'Gray'];
         }
 
         if (foundColors.length > 0) {
-            setAvailableColors(foundColors);
-            setSelectedColor(foundColors[0]); 
+          setAvailableColors(foundColors);
+          setSelectedColor(foundColors[0]);
         }
-        
+
         setColorImageMap(map);
       })
       .catch(console.error)
@@ -115,10 +122,10 @@ const ProductDetail = () => {
   }, [id]);
 
   const handleAddOnToggle = (addon) => {
-    if (selectedAddOns.some(a => a.name === addon.name)) {
-        setSelectedAddOns(selectedAddOns.filter(a => a.name !== addon.name));
+    if (selectedAddOns.some((a) => a.name === addon.name)) {
+      setSelectedAddOns(selectedAddOns.filter((a) => a.name !== addon.name));
     } else {
-        setSelectedAddOns([...selectedAddOns, addon]);
+      setSelectedAddOns([...selectedAddOns, addon]);
     }
   };
 
@@ -126,19 +133,23 @@ const ProductDetail = () => {
     if (product) {
       const addOnsTotal = selectedAddOns.reduce((sum, item) => sum + item.price, 0);
       const finalUnitPrice = Number(product.product_price) + addOnsTotal;
+      const imageToUse = (selectedColor && colorImageMap[selectedColor]) || product.image_url;
+      const resolvedImage = getImageUrl(imageToUse);
 
       const productToAdd = {
-          ...product,
-          product_price: finalUnitPrice, // Override price for cart
-          selectedOption: selectedColor, // Legacy clothing support
-          // New Drink Shop support
-          customization: customOptions ? {
+        ...product,
+        image_url: resolvedImage,
+        product_price: finalUnitPrice,
+        selectedOption: selectedColor,
+        customization: customOptions
+          ? {
               sweetness,
               addOns: selectedAddOns,
-              notes: specialNotes
-          } : null
+              notes: specialNotes,
+            }
+          : null,
       };
-      
+
       addToCart(productToAdd, quantity);
     }
   };
@@ -147,273 +158,310 @@ const ProductDetail = () => {
     if (!product) return;
 
     if (!user) {
-        navigate('/login', { state: { from: `/product/${id}` } });
-        return;
+      navigate('/login', { state: { from: `/product/${id}` } });
+      return;
     }
 
     try {
-        const imageToUse = (selectedColor && colorImageMap[selectedColor]) ? colorImageMap[selectedColor] : (product.image_url || 'https://via.placeholder.com/400');
-        const addOnsTotal = selectedAddOns.reduce((sum, item) => sum + item.price, 0);
-        const finalUnitPrice = Number(product.product_price) + addOnsTotal;
+      const imageToUse =
+        selectedColor && colorImageMap[selectedColor]
+          ? colorImageMap[selectedColor]
+          : product.image_url || 'https://via.placeholder.com/400';
+      const addOnsTotal = selectedAddOns.reduce((sum, item) => sum + item.price, 0);
+      const finalUnitPrice = Number(product.product_price) + addOnsTotal;
 
-        const itemToBuy = {
-            // Ensure we use correct field names matching the API response
-            product_id: Number(product.product_id || product.id),
-            product_name: product.product_name || product.name,
-            product_price: finalUnitPrice,
-            quantity: Number(quantity),
-            image_url: imageToUse,
-            selected_option: selectedColor, // Map to snake_case for consistency if needed by backend, though backend usually takes standardized OrderItem
-            selectedOption: selectedColor, // Legacy prop
-            cartId: `buynow-${product.product_id || product.id}-${Date.now()}`,
-            customization: customOptions ? {
-                sweetness,
-                addOns: selectedAddOns,
-                notes: specialNotes
-            } : null
-        };
+      const itemToBuy = {
+        product_id: Number(product.product_id || product.id),
+        product_name: product.product_name || product.name,
+        product_price: finalUnitPrice,
+        quantity: Number(quantity),
+        image_url: imageToUse,
+        selected_option: selectedColor,
+        selectedOption: selectedColor,
+        cartId: `buynow-${product.product_id || product.id}-${Date.now()}`,
+        customization: customOptions
+          ? {
+              sweetness,
+              addOns: selectedAddOns,
+              notes: specialNotes,
+            }
+          : null,
+      };
 
-        const orderData = {
-            items: [itemToBuy],
-            paymentMethod: 'Online Payment' 
-        };
+      const orderData = {
+        items: [itemToBuy],
+        paymentMethod: 'Online Payment',
+      };
 
-        // Create the order immediately as per "Direct Checkout" requirement
-        await addOrder(orderData);
-        
-        navigate('/invoice', { 
-            state: { 
-                order: {
-                    ...orderData,
-                    items: [itemToBuy].map(i => ({...i, price: i.product_price})),
-                    customer_name: user?.fullName || "Valued Customer",
-                    email: user?.email,
-                    order_id: "NEW"
-                }
-            } 
-        });
+      await addOrder(orderData);
+
+      navigate('/invoice', {
+        state: {
+          order: {
+            ...orderData,
+            items: [itemToBuy].map((i) => ({ ...i, price: i.product_price })),
+            customer_name: user?.fullName || 'Valued Customer',
+            email: user?.email,
+            order_id: 'NEW',
+          },
+        },
+      });
     } catch (error) {
-        console.error("Buy Now failed:", error);
-        alert("Failed to process order. Please try again.");
+      console.error('Buy Now failed:', error);
+      alert('Failed to process order. Please try again.');
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div className="min-h-[70vh] flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-3 border-[#dfd5da] border-t-[#1d1d1f] animate-spin"></div>
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Product not found</h2>
-        <button 
+      <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 text-center">
+        <h2 className="text-2xl font-bold text-[#1d1d1f] mb-2">Product Not Found</h2>
+        <p className="text-xs text-[#86868b] mb-6">The product you are looking for is no longer available.</p>
+        <button
           onClick={() => navigate(-1)}
-          className="text-primary hover:text-primary-dark flex items-center"
+          className="inline-flex items-center space-x-2 px-6 py-2.5 rounded-full bg-[#1d1d1f] hover:bg-[#333336] text-white text-xs font-semibold active:scale-95 transition-all shadow-xs"
         >
-          <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
+          <ArrowLeft size={16} weight="duotone" />
+          <span>Back to Catalog</span>
         </button>
       </div>
     );
   }
 
-  // Hide the technical metadata from the visible description
-  const cleanDescription = product.product_desc 
+  const cleanDescription = product.product_desc
     ? product.product_desc.replace(/<!-- COLORS:(.*?) -->/g, '')
     : '';
 
   return (
-    <div className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <button 
+    <div className="bg-[#f5f5f7] min-h-screen py-6 sm:py-12 px-3 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto">
+        <button
           onClick={() => navigate(-1)}
-          className="mb-8 flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+          className="mb-5 sm:mb-8 inline-flex items-center space-x-2 text-xs font-bold text-[#6e6e73] hover:text-[#1d1d1f] transition-colors"
         >
-          <ArrowLeft className="mr-2 h-5 w-5" /> Back to Shop
+          <ArrowLeft size={15} weight="bold" />
+          <span>Back to Products</span>
         </button>
 
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden lg:flex">
-          {/* Image Section */}
-          <div className="lg:w-1/2 bg-gray-100 relative min-h-[400px]">
-            <img 
-              src={(selectedColor && colorImageMap[selectedColor]) ? colorImageMap[selectedColor] : (product.image_url || 'https://via.placeholder.com/600x600')} 
-              alt={`${product.product_name} - ${selectedColor || 'Default'}`} 
-              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+        <div className="bg-white rounded-3xl border border-[#e8e8ed] shadow-sm overflow-hidden grid grid-cols-1 lg:grid-cols-12">
+          {/* Product Image Section */}
+          <div className="lg:col-span-6 bg-[#fbfbfd] p-6 sm:p-10 relative min-h-[300px] sm:min-h-[380px] lg:min-h-[460px] flex items-center justify-center border-b lg:border-b-0 lg:border-r border-[#e8e8ed]">
+            <img
+              src={
+                selectedColor && colorImageMap[selectedColor]
+                  ? getImageUrl(colorImageMap[selectedColor])
+                  : getImageUrl(product.image_url)
+              }
+              alt={`${product.product_name} - ${selectedColor || 'Default'}`}
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = '/assets/bowl-white.jpg';
+              }}
+              className="max-h-[280px] sm:max-h-[380px] lg:max-h-[420px] w-auto max-w-full object-contain mx-auto transition-all duration-300 drop-shadow-xs hover:scale-105"
             />
           </div>
 
-          {/* Details Section */}
-          <div className="lg:w-1/2 p-8 lg:p-12 flex flex-col">
-            <div className="flex-1">
-              <div className="flex justify-between items-start">
-                <h1 className="text-3xl font-bold text-gray-900 mb-4">{product.product_name}</h1>
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                  In Stock
+          {/* Product Details Section */}
+          <div className="lg:col-span-6 p-5 sm:p-10 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between gap-4 mb-3 sm:mb-4">
+                <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#f5edf0] text-[#594951] border border-[#e6dadf]">
+                  <CheckCircle size={14} weight="duotone" className="text-emerald-600" />
+                  <span>In Stock</span>
+                </span>
+                <span className="text-xs text-[#86868b] font-medium">SKU: AIU-{product.product_id}</span>
+              </div>
+
+              <h1 className="text-xl sm:text-3xl font-extrabold text-[#1d1d1f] tracking-tight mb-2">
+                {product.product_name}
+              </h1>
+
+              <div className="flex items-baseline space-x-3 mb-5 sm:mb-6">
+                <span className="text-2xl sm:text-3xl font-black text-[#1d1d1f] tracking-tight">
+                  RM {Number(product.product_price).toFixed(2)}
                 </span>
               </div>
-              
-              <p className="text-2xl font-bold text-primary mb-6">${product.product_price}</p>
-              
-              <div className="prose prose-sm text-gray-500 mb-8 whitespace-pre-wrap">
-                {cleanDescription || "No description available."}
+
+              <div className="text-xs sm:text-sm text-[#6e6e73] leading-relaxed mb-6 sm:mb-8 whitespace-pre-wrap">
+                {cleanDescription || 'High-quality product curated for the AIU campus community.'}
               </div>
 
-              {/* --- DRINK CUSTOMIZATIONS --- */}
+              {/* Custom Options (For Drink Shops) */}
               {customOptions && (
-                  <div className="mb-8 space-y-8 animate-fade-in-up">
-                      {/* Sweetness */}
-                      {customOptions.sweetness && (
-                          <div>
-                              <h3 className="text-sm font-bold text-gray-900 mb-3">Sweetness Level</h3>
-                              <div className="flex flex-wrap gap-2">
-                                  {['Original', 'Sweet', 'Less Sweet', 'No Sugar'].map(level => (
-                                      <button
-                                          key={level}
-                                          onClick={() => setSweetness(level)}
-                                          className={`px-5 py-2.5 rounded-lg text-sm font-medium border transition-all duration-200 ${
-                                              sweetness === level 
-                                              ? 'bg-[#E67E22] text-white border-[#E67E22] shadow-md transform scale-105' 
-                                              : 'bg-gray-100/80 text-gray-600 border-transparent hover:bg-gray-200'
-                                          }`}
-                                      >
-                                          {level}
-                                      </button>
-                                  ))}
-                              </div>
-                          </div>
-                      )}
-
-                      {/* Add-ons */}
-                      {customOptions.addOns && customOptions.addOns.length > 0 && (
-                          <div>
-                              <h3 className="text-sm font-bold text-gray-900 mb-3">Available Add-ons</h3>
-                              <div className="space-y-3">
-                                  {customOptions.addOns.map((addon, idx) => {
-                                      const isSelected = selectedAddOns.some(a => a.name === addon.name);
-                                      return (
-                                          <div 
-                                            key={idx}
-                                            onClick={() => handleAddOnToggle(addon)}
-                                            className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all duration-200 group ${
-                                                isSelected ? 'border-[#E67E22] bg-[#FFF8F0] ring-1 ring-[#E67E22]' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                                            }`}
-                                          >
-                                              <div className="flex items-center">
-                                                  <div className={`w-5 h-5 rounded border flex items-center justify-center mr-3 transition-colors ${isSelected ? 'bg-[#E67E22] border-[#E67E22]' : 'border-gray-300 group-hover:border-gray-400'}`}>
-                                                      {isSelected && <Check className="w-3 h-3 text-white" />}
-                                                  </div>
-                                                  <div>
-                                                      <span className={`font-medium block ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>{addon.name}</span>
-                                                  </div>
-                                              </div>
-                                              <span className="font-bold text-[#E67E22]">+RM {addon.price.toFixed(2)}</span>
-                                          </div>
-                                      );
-                                  })}
-                              </div>
-                          </div>
-                      )}
-                      
-                      {/* Special Notes */}
-                      <div>
-                          <h3 className="text-sm font-bold text-gray-900 mb-3">Special Notes (Optional)</h3>
-                          <textarea 
-                            className="w-full p-4 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#E67E22] focus:border-[#E67E22] outline-none transition-all resize-none text-sm"
-                            rows="3"
-                            placeholder="Add any special requests or notes..."
-                            value={specialNotes}
-                            onChange={(e) => setSpecialNotes(e.target.value)}
-                          />
+                <div className="mb-6 sm:mb-8 space-y-5">
+                  {customOptions.sweetness && (
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[#1d1d1f] mb-2.5">
+                        Sweetness Level
+                      </h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {['Original', 'Sweet', 'Less Sweet', 'No Sugar'].map((level) => (
+                          <button
+                            key={level}
+                            onClick={() => setSweetness(level)}
+                            className={`py-2 px-3 rounded-full text-xs font-semibold border transition-all ${
+                              sweetness === level
+                                ? 'bg-[#1d1d1f] text-white border-[#1d1d1f] shadow-xs'
+                                : 'bg-[#f5f5f7] text-[#594951] border-[#e8e8ed] hover:bg-[#f5edf0]'
+                            }`}
+                          >
+                            {level}
+                          </button>
+                        ))}
                       </div>
-                  </div>
-              )}
+                    </div>
+                  )}
 
-              {/* --- COLOR SELECTION UI --- */}
-              {!customOptions && availableColors.length > 0 && (
-                  <div className="mb-8">
-                      <h3 className="text-sm font-medium text-gray-900 mb-3">Color</h3>
-                      <div className="flex items-center space-x-3">
-                          {availableColors.map(colorName => {
-                              const hex = AVAILABLE_COLORS_MAP[colorName] || '#CCCCCC';
-                              const isSelected = selectedColor === colorName;
-                              
-                              return (
-                                  <button
-                                      key={colorName}
-                                      onClick={() => setSelectedColor(colorName)}
-                                      className={`
-                                          w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all
-                                          ${isSelected ? 'ring-2 ring-offset-2 ring-gray-900 scale-110' : 'hover:scale-105'}
-                                          ${colorName === 'White' ? 'border-gray-200' : 'border-transparent'}
-                                      `}
-                                      style={{ backgroundColor: hex }}
-                                      title={colorName}
-                                  >
-                                      {isSelected && (
-                                          <Check className={`w-5 h-5 ${colorName === 'White' || colorName === 'Yellow' ? 'text-black' : 'text-white'}`} />
-                                      )}
-                                  </button>
-                              );
-                          })}
+                  {customOptions.addOns && customOptions.addOns.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[#1d1d1f] mb-2.5">
+                        Available Add-ons
+                      </h3>
+                      <div className="space-y-2">
+                        {customOptions.addOns.map((addon, idx) => {
+                          const isSelected = selectedAddOns.some((a) => a.name === addon.name);
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => handleAddOnToggle(addon)}
+                              className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'border-[#1d1d1f] bg-[#f5edf0]/60 ring-1 ring-[#1d1d1f]'
+                                  : 'border-[#e8e8ed] hover:border-[#dfd5da]'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2.5">
+                                <div
+                                  className={`w-4 h-4 rounded-md border flex items-center justify-center ${
+                                    isSelected
+                                      ? 'bg-[#1d1d1f] border-[#1d1d1f] text-white'
+                                      : 'border-[#dfd5da]'
+                                  }`}
+                                >
+                                  {isSelected && <Check size={12} weight="bold" />}
+                                </div>
+                                <span className="text-xs font-medium text-[#1d1d1f]">{addon.name}</span>
+                              </div>
+                              <span className="text-xs font-bold text-[#8e6e7d]">+RM {addon.price.toFixed(2)}</span>
+                            </div>
+                          );
+                        })}
                       </div>
-                      <p className="mt-2 text-sm text-gray-500">Selected: <span className="font-medium text-gray-900">{selectedColor}</span></p>
-                  </div>
-              )}
+                    </div>
+                  )}
 
-              <div className="border-t border-gray-200 pt-8 mt-8">
-                <div className="flex items-center space-x-4 mb-6">
-                  <span className="text-gray-700 font-medium">Quantity</span>
-                  <div className="flex items-center border border-gray-300 rounded-md">
-                    <button 
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="px-3 py-1 border-r border-gray-300 hover:bg-gray-50 text-gray-600"
-                    >
-                      -
-                    </button>
-                    <input 
-                      type="number" 
-                      className="w-12 text-center border-none focus:ring-0 text-gray-900 py-1"
-                      value={quantity}
-                      readOnly
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#1d1d1f] mb-2">
+                      Special Notes (Optional)
+                    </h3>
+                    <textarea
+                      className="w-full p-3.5 border border-[#dfd5da] rounded-2xl bg-[#f5f5f7] focus:bg-white focus:ring-2 focus:ring-[#1d1d1f]/10 focus:border-[#1d1d1f] outline-none text-xs text-[#1d1d1f] resize-none transition-all"
+                      rows="2"
+                      placeholder="Add any specific preparation requests..."
+                      value={specialNotes}
+                      onChange={(e) => setSpecialNotes(e.target.value)}
                     />
-                    <button 
-                      onClick={() => setQuantity(quantity + 1)}
-                      className="px-3 py-1 border-l border-gray-300 hover:bg-gray-50 text-gray-600"
-                    >
-                      +
-                    </button>
                   </div>
                 </div>
+              )}
 
-                <div className="grid grid-cols-2 gap-4">
-                  <button 
-                    onClick={handleAddToCart}
-                    className="flex justify-center items-center px-6 py-3 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+              {/* Color Selection UI */}
+              {!customOptions && availableColors.length > 0 && (
+                <div className="mb-6 sm:mb-8">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#1d1d1f]">Color Option</h3>
+                    <span className="text-xs text-[#86868b] font-medium">{selectedColor}</span>
+                  </div>
+                  <div className="flex items-center space-x-2.5">
+                    {availableColors.map((colorName) => {
+                      const hex = AVAILABLE_COLORS_MAP[colorName] || '#CCCCCC';
+                      const isSelected = selectedColor === colorName;
+
+                      return (
+                        <button
+                          key={colorName}
+                          onClick={() => setSelectedColor(colorName)}
+                          className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all ${
+                            isSelected
+                              ? 'ring-2 ring-[#1d1d1f] ring-offset-2 scale-110'
+                              : 'hover:scale-105 border-[#e8e8ed]'
+                          }`}
+                          style={{ backgroundColor: hex }}
+                          title={colorName}
+                          aria-label={colorName}
+                        >
+                          {isSelected && (
+                            <Check
+                              size={14}
+                              weight="bold"
+                              className={colorName === 'White' || colorName === 'Yellow' ? 'text-black' : 'text-white'}
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions Bottom Bar */}
+            <div className="border-t border-[#f0eaed] pt-5 sm:pt-6 mt-4 sm:mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#6e6e73]">Quantity</span>
+                <div className="inline-flex items-center border border-[#dfd5da] rounded-full overflow-hidden bg-[#f5f5f7]">
+                  <button
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="p-2 sm:p-2.5 hover:bg-[#eee0e5] text-[#1d1d1f] active:scale-95 transition-all"
+                    aria-label="Decrease quantity"
                   >
-                    <ShoppingCart className="mr-2 h-5 w-5" />
-                    Add to Cart
+                    <Minus size={13} weight="bold" />
                   </button>
-                  <button 
-                    onClick={handleBuyNow}
-                    className="flex justify-center items-center px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                  <span className="w-10 text-center font-bold text-xs text-[#1d1d1f]">{quantity}</span>
+                  <button
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="p-2 sm:p-2.5 hover:bg-[#eee0e5] text-[#1d1d1f] active:scale-95 transition-all"
+                    aria-label="Increase quantity"
                   >
-                    Buy Now
+                    <Plus size={13} weight="bold" />
                   </button>
                 </div>
               </div>
-            </div>
-            
-            <div className="mt-8 grid grid-cols-2 gap-4 text-xs text-gray-500">
-              <div className="flex items-center">
-                <Package className="mr-2 h-4 w-4" />
-                <span>Fast Delivery</span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                <button
+                  onClick={handleAddToCart}
+                  className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-full bg-[#f5edf0] hover:bg-[#eee0e5] text-[#594951] border border-[#e6dadf] font-semibold text-xs active:scale-95 transition-all shadow-xs"
+                >
+                  <ShoppingCart size={16} weight="duotone" />
+                  <span>Add to Bag</span>
+                </button>
+                <button
+                  onClick={handleBuyNow}
+                  className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-full bg-[#1d1d1f] hover:bg-[#333336] text-white font-semibold text-xs active:scale-95 transition-all shadow-xs"
+                >
+                  <Lightning size={16} weight="duotone" />
+                  <span>Direct Checkout</span>
+                </button>
               </div>
-              <div className="flex items-center">
-                <Tag className="mr-2 h-4 w-4" />
-                <span>Secure Checkout</span>
+
+              <div className="mt-5 pt-4 border-t border-[#f0eaed] grid grid-cols-2 gap-3 text-[#86868b] text-[10px] sm:text-[11px]">
+                <div className="flex items-center space-x-1.5">
+                  <Truck size={15} weight="duotone" className="text-[#8e6e7d] shrink-0" />
+                  <span>Campus Pickup / Delivery</span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <ShieldCheck size={15} weight="duotone" className="text-[#8e6e7d]" />
+                  <span>Verified AIU Merchant</span>
+                </div>
               </div>
             </div>
           </div>
