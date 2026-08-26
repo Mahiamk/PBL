@@ -73,16 +73,11 @@ def get_admin_dashboard(db: Session = Depends(get_db)):
     from sqlalchemy import func
     from datetime import datetime, timedelta
 
-    # Fetch REAL counts from the database
-    total_vendors = db.query(User).filter(User.role == UserRole.VENDOR).count()
-    total_customers = db.query(User).filter(User.role == UserRole.CUSTOMER).count()
-    total_orders = db.query(models.Order).count()
-    
-    # Graphs: Multi-range
+    # Time ranges
     thirty_days_ago = datetime.now() - timedelta(days=30)
     twelve_weeks_ago = datetime.now() - timedelta(weeks=12)
     twelve_months_ago = datetime.now() - timedelta(days=365)
-    
+
     def format_date_val(val, fmt="%b %d"):
         # Handle string or date object
         if val is None: return ""
@@ -96,109 +91,123 @@ def get_admin_dashboard(db: Session = Depends(get_db)):
             return val.strftime(fmt)
         return str(val)
 
-    # 1. Orders Graph
-    # Daily
-    orders_data = db.query(
-        func.date(models.Order.order_date).label('date'),
-        func.count(models.Order.order_id).label('count')
-    ).filter(models.Order.order_date >= thirty_days_ago)\
-     .group_by('date')\
-     .order_by('date').all()
-     
-    orders_graph = [
-        {"name": format_date_val(d.date), "value": d.count} 
-        for d in orders_data
-    ]
-    
-    # Weekly
-    orders_data_w = db.query(
-        func.date_format(models.Order.order_date, '%Y-%u').label('week'),
-        func.count(models.Order.order_id).label('count')
-    ).filter(models.Order.order_date >= twelve_weeks_ago)\
-     .group_by('week')\
-     .order_by('week').all()
-     
-    orders_graph_weekly = []
-    for d in orders_data_w:
-        label = d.week # e.g. 2023-45
-        if d.week and '-' in d.week:
-             label = f"Week {d.week.split('-')[1]}"
-        orders_graph_weekly.append({"name": label, "value": d.count})
+    # Fetch REAL counts from the database
+    total_vendors = db.query(User).filter(User.role == UserRole.VENDOR).count()
+    total_customers = db.query(User).filter(User.role == UserRole.CUSTOMER).count()
+    total_orders = db.query(models.Order).count()
+    total_stores = db.query(models.Store).count()
+    total_appointments = db.query(models.Appointment).count()
+    total_revenue_val = db.query(func.coalesce(func.sum(models.Order.total_amount), 0.0)).scalar() or 0.0
 
-    # Monthly
-    orders_data_m = db.query(
-        func.date_format(models.Order.order_date, '%Y-%m').label('month'),
-        func.count(models.Order.order_id).label('count')
-    ).filter(models.Order.order_date >= twelve_months_ago)\
-     .group_by('month')\
-     .order_by('month').all()
+    # Real Store Distribution (Products count per active store)
+    stores_list = db.query(models.Store).all()
+    store_dist = []
+    for s in stores_list:
+        prod_count = db.query(models.Product).filter(models.Product.store_id == s.store_id, models.Product.status != 'deleted').count()
+        order_count = db.query(models.Order).filter(models.Order.store_id == s.store_id).count()
+        store_dist.append({
+            "name": s.store_name,
+            "value": max(order_count, prod_count, 1),
+            "products": prod_count,
+            "orders": order_count
+        })
+
+    # 1. Orders & Revenue Graph (Database Agnostic Aggregation)
+    all_recent_orders = db.query(models.Order).filter(models.Order.order_date >= twelve_months_ago).all()
     
-    orders_graph_monthly = []
-    for d in orders_data_m:
-         label = d.month
-         if d.month:
-             try:
-                 label = datetime.strptime(d.month, "%Y-%m").strftime("%b %Y")
-             except: pass
-         orders_graph_monthly.append({"name": label, "value": d.count})
+    daily_orders_map = {}
+    weekly_orders_map = {}
+    monthly_orders_map = {}
+    daily_revenue_map = {}
+
+    for o in all_recent_orders:
+        if not o.order_date:
+            continue
+        try:
+            od = o.order_date if isinstance(o.order_date, datetime) else datetime.fromisoformat(str(o.order_date))
+        except Exception:
+            continue
+        
+        # Daily
+        if od >= thirty_days_ago:
+            d_key = od.strftime("%Y-%m-%d")
+            daily_orders_map[d_key] = daily_orders_map.get(d_key, 0) + 1
+            daily_revenue_map[d_key] = daily_revenue_map.get(d_key, 0.0) + float(o.total_amount or 0.0)
+            
+        # Weekly
+        if od >= twelve_weeks_ago:
+            w_key = od.strftime("%Y-W%U")
+            w_label = f"Week {od.strftime('%U')}"
+            weekly_orders_map[w_key] = {"name": w_label, "value": weekly_orders_map.get(w_key, {}).get("value", 0) + 1}
+            
+        # Monthly
+        if od >= twelve_months_ago:
+            m_key = od.strftime("%Y-%m")
+            m_label = od.strftime("%b %Y")
+            monthly_orders_map[m_key] = {"name": m_label, "value": monthly_orders_map.get(m_key, {}).get("value", 0) + 1}
+
+    orders_graph = [
+        {"name": format_date_val(k), "value": v}
+        for k, v in sorted(daily_orders_map.items())
+    ]
+    revenue_trend = [
+        {"date": format_date_val(k), "total": v}
+        for k, v in sorted(daily_revenue_map.items())
+    ]
+    orders_graph_weekly = [v for k, v in sorted(weekly_orders_map.items())]
+    orders_graph_monthly = [v for k, v in sorted(monthly_orders_map.items())]
 
     # 2. Users Graph (Vendor Applications)
-    # Daily
-    vendors_data = db.query(
-        func.date(models.VendorApplication.created_at).label('date'),
-        func.count(models.VendorApplication.application_id).label('count')
-    ).filter(models.VendorApplication.created_at >= thirty_days_ago)\
-     .group_by('date')\
-     .order_by('date').all()
-     
-    users_graph = [
-        {"name": format_date_val(d.date), "value": d.count}
-        for d in vendors_data
-    ]
-    
-    # Weekly
-    vendors_data_w = db.query(
-        func.date_format(models.VendorApplication.created_at, '%Y-%u').label('week'),
-        func.count(models.VendorApplication.application_id).label('count')
-    ).filter(models.VendorApplication.created_at >= twelve_weeks_ago)\
-     .group_by('week')\
-     .order_by('week').all()
-     
-    users_graph_weekly = []
-    for d in vendors_data_w:
-        label = d.week
-        if d.week and '-' in d.week:
-             label = f"Week {d.week.split('-')[1]}"
-        users_graph_weekly.append({"name": label, "value": d.count})
+    all_recent_apps = db.query(models.VendorApplication).filter(models.VendorApplication.created_at >= twelve_months_ago).all()
+    daily_apps_map = {}
+    weekly_apps_map = {}
+    monthly_apps_map = {}
+
+    for a in all_recent_apps:
+        if not a.created_at:
+            continue
+        try:
+            ad = a.created_at if isinstance(a.created_at, datetime) else datetime.fromisoformat(str(a.created_at))
+        except Exception:
+            continue
         
-    # Monthly
-    vendors_data_m = db.query(
-        func.date_format(models.VendorApplication.created_at, '%Y-%m').label('month'),
-        func.count(models.VendorApplication.application_id).label('count')
-    ).filter(models.VendorApplication.created_at >= twelve_months_ago)\
-     .group_by('month')\
-     .order_by('month').all()
-     
-    users_graph_monthly = []
-    for d in vendors_data_m:
-         label = d.month
-         if d.month:
-             try:
-                 label = datetime.strptime(d.month, "%Y-%m").strftime("%b %Y")
-             except: pass
-         users_graph_monthly.append({"name": label, "value": d.count})
+        if ad >= thirty_days_ago:
+            d_key = ad.strftime("%Y-%m-%d")
+            daily_apps_map[d_key] = daily_apps_map.get(d_key, 0) + 1
+            
+        if ad >= twelve_weeks_ago:
+            w_key = ad.strftime("%Y-W%U")
+            w_label = f"Week {ad.strftime('%U')}"
+            weekly_apps_map[w_key] = {"name": w_label, "value": weekly_apps_map.get(w_key, {}).get("value", 0) + 1}
+            
+        if ad >= twelve_months_ago:
+            m_key = ad.strftime("%Y-%m")
+            m_label = ad.strftime("%b %Y")
+            monthly_apps_map[m_key] = {"name": m_label, "value": monthly_apps_map.get(m_key, {}).get("value", 0) + 1}
+
+    users_graph = [
+        {"name": format_date_val(k), "value": v}
+        for k, v in sorted(daily_apps_map.items())
+    ]
+    users_graph_weekly = [v for k, v in sorted(weekly_apps_map.items())]
+    users_graph_monthly = [v for k, v in sorted(monthly_apps_map.items())]
     
     return AdminDashboardData(
         total_vendors=total_vendors,
         total_customers=total_customers,
         total_orders=total_orders,
+        total_stores=total_stores,
+        total_revenue=float(total_revenue_val),
+        total_appointments=total_appointments,
         recent_logs=[],
         orders_graph=orders_graph,
         users_graph=users_graph,
         orders_graph_weekly=orders_graph_weekly,
         orders_graph_monthly=orders_graph_monthly,
         users_graph_weekly=users_graph_weekly,
-        users_graph_monthly=users_graph_monthly
+        users_graph_monthly=users_graph_monthly,
+        store_distribution=store_dist,
+        revenue_trend=revenue_trend
     )
 
 # Vendor Dashboard
