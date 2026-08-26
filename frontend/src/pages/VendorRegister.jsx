@@ -1,24 +1,65 @@
 import React, { useState } from 'react';
 import { registerVendor } from '../lib/api';
 import { useNavigate, Link } from 'react-router-dom';
+import {
+  Storefront,
+  EnvelopeSimple,
+  LockKey,
+  Phone,
+  ArrowRight,
+  ShieldCheck,
+  CheckCircle,
+  UploadSimple,
+  Buildings,
+  ShoppingBagOpen,
+  Scissors,
+  Package,
+  CalendarCheck,
+  Tag,
+} from '@phosphor-icons/react';
+
+const productSuggestions = [
+  'Burger & Fast Food',
+  'Beverage & Cafe',
+  'Fashion & Apparel',
+  'Tumblers & Bottles',
+  'Tech & Electronics',
+  'Books & Stationery',
+  'Campus Snacks',
+  'Handmade Crafts',
+];
+
+const serviceSuggestions = [
+  'Shoe & Bag Repair',
+  'Barber & Haircut',
+  'Custom Tailoring',
+  'PC & Phone Repair',
+  'Massage & Wellness',
+  'Laundry & Dry Clean',
+  'Event Photography',
+  'Printing & Binding',
+];
 
 const VendorRegister = () => {
-  // 3NF Normalized: Split full_name into first_name, last_name, initial
+  const [offeringType, setOfferingType] = useState('product'); // 'product' or 'service'
+  const [customCategory, setCustomCategory] = useState('');
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
-    initial: '',  // Optional middle initial
-    phone_number: '',  // User phone number
+    initial: '',
+    phone_number: '',
     email: '',
     password: '',
     confirmPassword: '',
     business_name: '',
     contact_details: '',
-    vendor_type: ''
+    description: '',
+    working_hours: '09:00 AM - 08:00 PM',
   });
   const [bannerImage, setBannerImage] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -31,36 +72,40 @@ const VendorRegister = () => {
     }
   };
 
+  const handleSuggestionClick = (cat) => {
+    setCustomCategory(cat);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
+
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords don't match");
       return;
     }
 
-    if (!formData.vendor_type) {
-      setError("Please select a vendor type");
+    if (!customCategory.trim()) {
+      setError('Please type or select a store category');
       return;
     }
-    
+
+    setIsSubmitting(true);
     try {
       const data = new FormData();
-      // 3NF Normalized: Send separate name fields
       data.append('first_name', formData.first_name);
       data.append('last_name', formData.last_name);
-      if (formData.initial) {
-        data.append('initial', formData.initial);
-      }
-      if (formData.phone_number) {
-        data.append('phone_number', formData.phone_number);
-      }
+      if (formData.initial) data.append('initial', formData.initial);
+      if (formData.phone_number) data.append('phone_number', formData.phone_number);
       data.append('email', formData.email);
       data.append('password', formData.password);
       data.append('business_name', formData.business_name);
       data.append('contact_details', formData.contact_details);
-      data.append('vendor_type', formData.vendor_type);
+      data.append('location', formData.contact_details);
+      data.append('working_hours', formData.working_hours || '09:00 AM - 08:00 PM');
+      data.append('vendor_type', customCategory.trim());
+      data.append('offering_type', offeringType);
+      if (formData.description) data.append('description', formData.description);
       if (bannerImage) {
         data.append('banner_image', bannerImage);
       }
@@ -68,199 +113,358 @@ const VendorRegister = () => {
       await registerVendor(data);
       setSuccess(true);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Registration failed.');
+      setError(err.response?.data?.detail || 'Registration failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-            </svg>
+      <div className="min-h-[75vh] flex items-center justify-center bg-[#f5f5f7] py-8 px-4">
+        <div className="max-w-[420px] w-full bg-white rounded-3xl border border-[#e8e8ed] shadow-xs p-6 sm:p-8 text-center space-y-4">
+          <div className="w-12 h-12 bg-[#f5edf0] text-[#6b535d] rounded-2xl flex items-center justify-center mx-auto">
+            <CheckCircle size={28} weight="duotone" className="text-emerald-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Application Submitted!</h2>
-          <p className="text-gray-600 mb-6">
-            Your vendor application has been received. An administrator will review your details shortly.
-            You will be able to log in once your account is approved.
-          </p>
-          <Link to="/login" className="text-primary hover:underline font-medium">
-            Return to Login
-          </Link>
+          <div>
+            <h2 className="text-xl font-extrabold text-[#1d1d1f] tracking-tight mb-1">
+              Store Application Submitted!
+            </h2>
+            <p className="text-xs text-[#6e6e73] leading-relaxed">
+              Your vendor application for <strong className="text-[#1d1d1f]">{formData.business_name}</strong> ({customCategory} • {offeringType === 'service' ? 'Service Provider' : 'Merchandise Seller'}) has been received. Campus administration will review your store credentials shortly.
+            </p>
+          </div>
+
+          <div className="pt-2">
+            <Link
+              to="/login"
+              className="inline-flex items-center justify-center px-6 py-2.5 rounded-full bg-[#1d1d1f] hover:bg-[#333336] text-white font-semibold text-xs shadow-xs transition-all active:scale-95"
+            >
+              Return to Login Portal
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
+  const currentSuggestions = offeringType === 'service' ? serviceSuggestions : productSuggestions;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Become a Vendor
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Join our marketplace and start selling today
-          </p>
-        </div>
-        {error && <div className="bg-red-50 text-red-500 p-3 rounded text-sm text-center">{error}</div>}
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            {/* 3NF Normalized: Separate name fields */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+    <div className="min-h-[85vh] flex items-center justify-center bg-[#f5f5f7] py-8 sm:py-12 px-4 sm:px-6">
+      <div className="max-w-[480px] w-full">
+        <div className="bg-white rounded-3xl sm:rounded-[32px] border border-[#e8e8ed] shadow-xs p-6 sm:p-8">
+          
+          {/* Header Banner */}
+          <div className="text-center mb-6">
+            <Link to="/" className="inline-block group mb-3">
+              <div className="w-10 h-10 rounded-full bg-[#1d1d1f] text-white flex items-center justify-center mx-auto shadow-xs group-hover:scale-105 transition-transform duration-200">
+                <ShoppingBagOpen size={20} weight="duotone" />
+              </div>
+            </Link>
+            <div className="inline-flex items-center space-x-1.5 px-3 py-0.5 rounded-full bg-[#f5edf0] text-[#594951] text-[10px] font-bold mb-1.5">
+              <span>Campus Merchant Hub</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-[#1d1d1f] tracking-tight">
+              Register Your Campus Store.
+            </h1>
+            <p className="text-xs text-[#6e6e73] mt-1 max-w-[320px] mx-auto">
+              Launch your shop, sell physical products, or accept appointment bookings.
+            </p>
+          </div>
+
+          {error && (
+            <div className="mb-5 p-3.5 bg-[#fff5f5] border border-[#fed7d7] rounded-2xl text-xs text-[#c53030] flex items-center space-x-2 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#e53e3e] shrink-0"></span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            
+            {/* 1. Primary Offering Identifier (Product vs Service) */}
+            <div className="p-4 bg-[#fbfbfd] rounded-2xl border border-[#e8e8ed] space-y-2">
+              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#1d1d1f]">
+                1. What does your shop primarily offer? <span className="text-rose-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setOfferingType('product')}
+                  className={`p-3 rounded-2xl border text-left transition-all flex items-center space-x-2.5 ${
+                    offeringType === 'product'
+                      ? 'bg-[#1d1d1f] text-white border-[#1d1d1f] shadow-xs'
+                      : 'bg-white text-[#1d1d1f] border-[#e8e8ed] hover:border-[#dfd5da]'
+                  }`}
+                >
+                  <Package size={20} weight="duotone" className={offeringType === 'product' ? 'text-amber-400' : 'text-[#8e6e7d]'} />
+                  <div>
+                    <span className="text-xs font-bold block">Physical Products</span>
+                    <span className={`text-[9px] block ${offeringType === 'product' ? 'text-white/70' : 'text-[#86868b]'}`}>
+                      Food, Clothes, Hardware
+                    </span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOfferingType('service')}
+                  className={`p-3 rounded-2xl border text-left transition-all flex items-center space-x-2.5 ${
+                    offeringType === 'service'
+                      ? 'bg-[#1d1d1f] text-white border-[#1d1d1f] shadow-xs'
+                      : 'bg-white text-[#1d1d1f] border-[#e8e8ed] hover:border-[#dfd5da]'
+                  }`}
+                >
+                  <CalendarCheck size={20} weight="duotone" className={offeringType === 'service' ? 'text-amber-400' : 'text-[#8e6e7d]'} />
+                  <div>
+                    <span className="text-xs font-bold block">Booking Services</span>
+                    <span className={`text-[9px] block ${offeringType === 'service' ? 'text-white/70' : 'text-[#86868b]'}`}>
+                      Repairs, Haircuts, Tailoring
+                    </span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Custom Category Input & Suggestions */}
+            <div className="space-y-2">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#1d1d1f]">
+                2. Store Category & Specialization <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <Tag size={15} weight="duotone" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#86868b] pointer-events-none" />
                 <input
-                  name="first_name"
                   type="text"
                   required
-                  className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                  value={formData.first_name}
-                  onChange={handleChange}
+                  placeholder={offeringType === 'service' ? "e.g. Shoe Repair, Custom Tailoring, Phone Screen Fix" : "e.g. Burger Shop, Boba Tea, Campus Hoodies"}
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 bg-[#f5f5f7] hover:bg-[#f0eaed] focus:bg-white text-xs text-[#1d1d1f] placeholder:text-[#86868b] rounded-2xl border border-transparent focus:border-[#dfd5da] focus:ring-2 focus:ring-[#1d1d1f]/5 outline-none transition-all font-semibold"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                <input
-                  name="last_name"
-                  type="text"
-                  required
-                  className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                  value={formData.last_name}
-                  onChange={handleChange}
-                />
+
+              {/* Quick Suggestion Chips */}
+              <div className="pt-1">
+                <span className="text-[10px] text-[#86868b] block mb-1.5">Suggestions (Click to apply):</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {currentSuggestions.map((sug) => (
+                    <button
+                      key={sug}
+                      type="button"
+                      onClick={() => handleSuggestionClick(sug)}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${
+                        customCategory === sug
+                          ? 'bg-[#1d1d1f] text-white border-[#1d1d1f]'
+                          : 'bg-[#fbfbfd] hover:bg-[#f5edf0] text-[#6e6e73] border-[#e8e8ed]'
+                      }`}
+                    >
+                      {sug}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Middle Initial (Optional)</label>
-              <input
-                name="initial"
-                type="text"
-                maxLength={10}
-                placeholder="e.g., M. or M"
-                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                value={formData.initial}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number (Optional)</label>
-              <input
-                name="phone_number"
-                type="tel"
-                placeholder="e.g., +81-90-1234-5678"
-                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                value={formData.phone_number}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
+
+            {/* Store Name */}
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#1d1d1f] mb-1">
+                Store / Business Name <span className="text-rose-500">*</span>
+              </label>
               <input
                 name="business_name"
                 type="text"
                 required
-                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                placeholder="e.g. AIU Sole Repair Studio"
                 value={formData.business_name}
                 onChange={handleChange}
+                className="w-full px-3.5 py-2.5 bg-[#f5f5f7] hover:bg-[#f0eaed] focus:bg-white text-xs text-[#1d1d1f] placeholder:text-[#86868b] rounded-2xl border border-transparent focus:border-[#dfd5da] focus:ring-2 focus:ring-[#1d1d1f]/5 outline-none transition-all font-semibold"
               />
             </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Vendor Type</label>
-              <select
-                name="vendor_type"
-                required
-                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                value={formData.vendor_type}
-                onChange={handleChange}
-              >
-                <option value="">Select a type</option>
-                <option value="BarberShop">Barber Shop</option>
-                <option value="BottleShop">Bottle Shop</option>
-                <option value="ClothingShop">Clothing Shop</option>
-                <option value="ComputerShop">Computer Shop</option>
-                <option value="DrinkShop">Drink Shop</option>
-                <option value="Massage">Massage</option>
-                <option value="Tailor">Tailor</option>
-              </select>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Shop Banner (Optional)</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Upload a banner image for your shop. If skipped, a default image will be used.
-              </p>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
-              <input
-                name="email"
-                type="email"
-                required
-                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                value={formData.email}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Contact Details</label>
+            {/* Store Description / Bio */}
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#1d1d1f] mb-1">
+                Store Description & Bio <span className="text-[#86868b] lowercase font-normal">(optional)</span>
+              </label>
               <textarea
-                name="contact_details"
-                rows="3"
-                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                value={formData.contact_details}
+                name="description"
+                rows="2"
+                placeholder="Tell campus customers what makes your shop unique or what items you craft..."
+                value={formData.description}
                 onChange={handleChange}
-                placeholder="Phone number, address, etc."
+                className="w-full px-3.5 py-2.5 bg-[#f5f5f7] hover:bg-[#f0eaed] focus:bg-white text-xs text-[#1d1d1f] placeholder:text-[#86868b] rounded-2xl border border-transparent focus:border-[#dfd5da] focus:ring-2 focus:ring-[#1d1d1f]/5 outline-none transition-all"
               />
             </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input
-                name="password"
-                type="password"
-                required
-                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                value={formData.password}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-              <input
-                name="confirmPassword"
-                type="password"
-                required
-                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
 
-          <div>
-            <button
-              type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-            >
-              Submit Application
-            </button>
-          </div>
-          <div className="text-center text-sm">
-            <Link to="/login" className="font-medium text-primary hover:text-primary-dark">
-              Already have an account? Sign in
+            {/* Personal Details */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#1d1d1f] mb-1">
+                  First Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  name="first_name"
+                  type="text"
+                  required
+                  placeholder="e.g. John"
+                  value={formData.first_name}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2 bg-[#f5f5f7] hover:bg-[#f0eaed] focus:bg-white text-xs text-[#1d1d1f] placeholder:text-[#86868b] rounded-2xl border border-transparent focus:border-[#dfd5da] focus:ring-2 focus:ring-[#1d1d1f]/5 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#1d1d1f] mb-1">
+                  Last Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  name="last_name"
+                  type="text"
+                  required
+                  placeholder="e.g. Doe"
+                  value={formData.last_name}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2 bg-[#f5f5f7] hover:bg-[#f0eaed] focus:bg-white text-xs text-[#1d1d1f] placeholder:text-[#86868b] rounded-2xl border border-transparent focus:border-[#dfd5da] focus:ring-2 focus:ring-[#1d1d1f]/5 outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Contact & Phone */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#1d1d1f] mb-1">
+                  Phone Number
+                </label>
+                <input
+                  name="phone_number"
+                  type="tel"
+                  placeholder="+60 11-2345 6789"
+                  value={formData.phone_number}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2 bg-[#f5f5f7] hover:bg-[#f0eaed] focus:bg-white text-xs text-[#1d1d1f] placeholder:text-[#86868b] rounded-2xl border border-transparent focus:border-[#dfd5da] focus:ring-2 focus:ring-[#1d1d1f]/5 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#1d1d1f] mb-1">
+                  Email Address <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="vendor@aiu.edu"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2 bg-[#f5f5f7] hover:bg-[#f0eaed] focus:bg-white text-xs text-[#1d1d1f] placeholder:text-[#86868b] rounded-2xl border border-transparent focus:border-[#dfd5da] focus:ring-2 focus:ring-[#1d1d1f]/5 outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Campus Location & Hours */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#1d1d1f] mb-1">
+                  Campus Location <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  name="contact_details"
+                  type="text"
+                  required
+                  placeholder="Student Center, Level 1"
+                  value={formData.contact_details}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2 bg-[#f5f5f7] hover:bg-[#f0eaed] focus:bg-white text-xs text-[#1d1d1f] placeholder:text-[#86868b] rounded-2xl border border-transparent focus:border-[#dfd5da] focus:ring-2 focus:ring-[#1d1d1f]/5 outline-none transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#1d1d1f] mb-1">
+                  Working Hours
+                </label>
+                <input
+                  name="working_hours"
+                  type="text"
+                  placeholder="09:00 AM - 08:00 PM"
+                  value={formData.working_hours}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2 bg-[#f5f5f7] hover:bg-[#f0eaed] focus:bg-white text-xs text-[#1d1d1f] placeholder:text-[#86868b] rounded-2xl border border-transparent focus:border-[#dfd5da] focus:ring-2 focus:ring-[#1d1d1f]/5 outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Banner Image */}
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#1d1d1f] mb-1">
+                Store Banner Photo <span className="text-[#86868b] lowercase font-normal">(optional)</span>
+              </label>
+              <label className="flex items-center justify-between px-3.5 py-2 bg-[#f5f5f7] hover:bg-[#f0eaed] rounded-2xl border border-dashed border-[#dfd5da] cursor-pointer text-xs text-[#86868b] transition-all">
+                <span className="truncate">{bannerImage ? bannerImage.name : 'Choose storefront banner...'}</span>
+                <UploadSimple size={15} weight="duotone" className="text-[#1d1d1f] shrink-0" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {/* Passwords */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#1d1d1f] mb-1">
+                  Password <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  name="password"
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2 bg-[#f5f5f7] hover:bg-[#f0eaed] focus:bg-white text-xs text-[#1d1d1f] placeholder:text-[#86868b] rounded-2xl border border-transparent focus:border-[#dfd5da] focus:ring-2 focus:ring-[#1d1d1f]/5 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#1d1d1f] mb-1">
+                  Confirm Password <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  name="confirmPassword"
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2 bg-[#f5f5f7] hover:bg-[#f0eaed] focus:bg-white text-xs text-[#1d1d1f] placeholder:text-[#86868b] rounded-2xl border border-transparent focus:border-[#dfd5da] focus:ring-2 focus:ring-[#1d1d1f]/5 outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-full bg-[#1d1d1f] hover:bg-[#333336] active:scale-95 text-white font-bold text-xs transition-all shadow-xs disabled:opacity-60"
+              >
+                <span>{isSubmitting ? 'Submitting Application...' : 'Register Campus Store'}</span>
+                <ArrowRight size={13} weight="bold" />
+              </button>
+            </div>
+          </form>
+
+          <div className="mt-6 text-center text-[11px] text-[#6e6e73]">
+            Already registered?{' '}
+            <Link to="/login" className="font-semibold text-[#1d1d1f] hover:underline">
+              Sign in to Vendor Portal
             </Link>
           </div>
-        </form>
+        </div>
+
+        <div className="flex items-center justify-center space-x-1.5 mt-4 text-[#86868b] text-[11px]">
+          <ShieldCheck size={14} weight="duotone" className="text-[#8e6e7d]" />
+          <span>AIU Campus Authentication & Verification Gateway</span>
+        </div>
       </div>
     </div>
   );
