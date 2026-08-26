@@ -61,6 +61,10 @@ def register_vendor(
     business_name: str = Form(...),
     contact_details: str = Form(...),
     vendor_type: str = Form(...),
+    offering_type: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    working_hours: Optional[str] = Form(None),
+    location: Optional[str] = Form(None),
     banner_image: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db)
 ):
@@ -107,11 +111,18 @@ def register_vendor(
     db.add(new_user)
     db.flush() # Get ID without committing
     
-    # Create Store automatically
+    # Create Store automatically with custom category and description
+    store_loc = location or contact_details
+    store_desc = description or f"Campus verified {vendor_type} ({offering_type or 'store'})."
     new_store = Store(
         store_name=business_name,
         store_type=vendor_type,
-        image_url=image_url # Set the uploaded image URL (or None)
+        image_url=image_url,
+        working_hours=working_hours or "09:00 AM - 08:00 PM",
+        location=store_loc,
+        phone=phone_number,
+        description=store_desc,
+        status="active"
     )
     db.add(new_store)
     db.flush() # Get Store ID
@@ -130,7 +141,7 @@ def register_vendor(
         business_name=business_name,
         contact_details=contact_details,
         status="pending",
-        vendor_type=vendor_type
+        vendor_type=f"{vendor_type} ({offering_type})" if offering_type else vendor_type
     )
     db.add(application)
     
