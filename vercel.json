@@ -28,6 +28,8 @@
     }
   ],
   "env": {
-    "VITE_API_URL": "/"
+    "VITE_API_URL": "/",
+    "BACKEND_PUBLIC_URL": "https://aiu-microstore.vercel.app",
+    "CORS_ORIGINS": "https://aiu-microstore.vercel.app,https://www.aiu-microstore.vercel.app"
   }
 }
