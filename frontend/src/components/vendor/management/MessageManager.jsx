@@ -3,8 +3,7 @@ import Chat from '../../Chat';
 
 const MessageManager = ({ selectedId }) => {
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-xl font-bold mb-4">Messages</h2>
+    <div className="h-[calc(100vh-140px)] min-h-[560px] w-full flex flex-col overflow-hidden animate-fade-in">
       <Chat preSelectedUser={selectedId ? parseInt(selectedId) : null} />
     </div>
   );
