@@ -71,6 +71,7 @@ async def upload_image(file: UploadFile = File(...)):
 
     return {"url": f"/uploads/{file_name}"}
 
+@router.get("", response_model=List[Product])
 @router.get("/", response_model=List[Product])
 def get_products(store_id: int = None, db: Session = Depends(get_db)):
     query = db.query(models.Product).filter(models.Product.status != "deleted")

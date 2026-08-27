@@ -8,6 +8,7 @@ from app.models import models
 router = APIRouter()
 
 
+@router.get("", response_model=List[Store])
 @router.get("/", response_model=List[Store])
 def get_stores(db: Session = Depends(get_db)):
     """

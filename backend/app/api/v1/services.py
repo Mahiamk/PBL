@@ -78,6 +78,7 @@ def create_service(
         store_type=store.store_type if store else None
     )
 
+@router.get("", response_model=List[ServiceResponse])
 @router.get("/", response_model=List[ServiceResponse])
 def get_services(store_id: Optional[int] = None, db: Session = Depends(get_db)):
     # Join with Store to get store details
