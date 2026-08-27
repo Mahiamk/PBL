@@ -10,7 +10,7 @@ export const getApiBaseUrl = () => {
     return 'http://localhost:8000';
   }
 
-  return '/';
+  return '';
 };
 
 export const getBackendBaseUrl = () => {
