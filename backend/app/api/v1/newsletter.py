@@ -15,7 +15,7 @@ def subscribe_newsletter(subscriber: schemas.SubscriberCreate, db: Session = Dep
     # Check if already subscribed
     existing = db.query(models.Subscriber).filter(models.Subscriber.email == subscriber.email).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Email already subscribed.")
+        return existing
     new_subscriber = models.Subscriber(email=subscriber.email)
     db.add(new_subscriber)
     db.commit()
