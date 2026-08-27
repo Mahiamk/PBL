@@ -14,15 +14,21 @@ from app.core.config import settings
 from app.db.database import engine, Base
 from app.models import models
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+# Create database tables safely
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"Warning: Database initialization skipped on startup: {e}")
 
 app = FastAPI(title="PBL Microservice Platform")
 
-uploads_dir = os.path.join(os.path.dirname(__file__), "..", "uploads")
-
-# Mount static files
-app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+uploads_dir = settings.effective_upload_dir
+try:
+    os.makedirs(uploads_dir, exist_ok=True)
+    if os.path.exists(uploads_dir):
+        app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+except Exception as e:
+    print(f"Warning: Uploads static mount skipped: {e}")
 
 # CORS Configuration
 origins = settings.CORS_ORIGINS_LIST
