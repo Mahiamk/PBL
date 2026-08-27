@@ -57,5 +57,7 @@ app.include_router(notifications.router, prefix="/api/notifications", tags=["not
 app.include_router(newsletter.router, prefix="/api", tags=["newsletter"])
 
 @app.get("/")
+@app.get("/api")
+@app.get("/api/health")
 def read_root():
-    return {"message": "Welcome to the PBL Microservice Platform API"}
+    return {"status": "ok", "message": "Welcome to the PBL Microservice Platform API"}
