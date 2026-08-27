@@ -88,6 +88,8 @@ class Settings(BaseSettings):
         return {}
 
     def _normalize_database_url(self, database_url: str) -> str:
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
         if database_url.startswith("mysql://"):
             try:
                 import pymysql  # noqa: F401
