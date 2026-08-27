@@ -70,10 +70,8 @@ backend/*.db
 backend/*.sqlite3
 
 # Uploads & Media Assets
-uploads/
 /backend/uploads/
 /backend/static/uploads/
-/frontend/public/uploads/
 
 # Frontend Build & Cache
 frontend/dist/
