@@ -32,6 +32,7 @@ import MassageDashboard from './pages/vendor/massage/Dashboard';
 
 import CartDrawer from './components/CartDrawer';
 import Footer from './components/Footer';
+import { Analytics } from '@vercel/analytics/react';
 
 function App() {
   return (
@@ -100,6 +101,7 @@ function App() {
               <Footer />
             </div>
           </Router>
+          <Analytics />
         </OrderProvider>
       </CartProvider>
     </AuthProvider>
