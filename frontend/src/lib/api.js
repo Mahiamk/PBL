@@ -35,7 +35,7 @@ export const getImageUrl = (url, fallback = '/assets/bowl-white.jpg') => {
   
   if (rawUrl.includes('/uploads/')) {
     const filename = rawUrl.split('/uploads/').pop();
-    return `${getBackendBaseUrl()}/uploads/${filename}`;
+    return `/uploads/${filename}`;
   }
   
   if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
@@ -44,7 +44,7 @@ export const getImageUrl = (url, fallback = '/assets/bowl-white.jpg') => {
   
   if (rawUrl.startsWith('/uploads/') || rawUrl.startsWith('uploads/')) {
     const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
-    return `${getBackendBaseUrl()}${cleanPath}`;
+    return cleanPath;
   }
   
   if (rawUrl.startsWith('/assets/')) {
