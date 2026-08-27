@@ -70,6 +70,15 @@ class Settings(BaseSettings):
                     "check_same_thread": False,
                 }
             }
+        if "pymysql" in self.DATABASE_URL:
+            return {
+                "connect_args": {
+                    "ssl": {
+                        "check_hostname": False,
+                        "verify_cert": False,
+                    }
+                }
+            }
         if "mysqlconnector" in self.DATABASE_URL:
             return {
                 "connect_args": {
@@ -80,7 +89,12 @@ class Settings(BaseSettings):
 
     def _normalize_database_url(self, database_url: str) -> str:
         if database_url.startswith("mysql://"):
-            normalized = database_url.replace("mysql://", "mysql+mysqlconnector://", 1)
+            try:
+                import pymysql  # noqa: F401
+                driver = "pymysql"
+            except ImportError:
+                driver = "mysqlconnector"
+            normalized = database_url.replace("mysql://", f"mysql+{driver}://", 1)
             parsed = urlsplit(normalized)
             query = dict(parse_qsl(parsed.query, keep_blank_values=True))
             query.pop("ssl-mode", None)
