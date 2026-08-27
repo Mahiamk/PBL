@@ -1,0 +1,17 @@
+# Vercel Ignore for Serverless Function Packaging
+frontend/src/
+frontend/public/
+frontend/node_modules/
+backend/tests/
+backend/database/
+docs/
+.git/
+.github/
+.vscode/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.md
+CREDENTIALS.*
+credentials.sh
