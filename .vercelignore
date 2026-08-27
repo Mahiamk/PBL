@@ -1,17 +1,11 @@
-# Vercel Ignore for Serverless Function Packaging
-frontend/src/
-frontend/public/
-frontend/node_modules/
+# Ignore local virtual environments, tests, and sensitive credentials
+backend/venv/
 backend/tests/
 backend/database/
-docs/
-.git/
-.github/
 .vscode/
-*.png
-*.jpg
-*.jpeg
-*.webp
-*.md
+.idea/
+.DS_Store
+*.pyc
+__pycache__/
 CREDENTIALS.*
 credentials.sh
