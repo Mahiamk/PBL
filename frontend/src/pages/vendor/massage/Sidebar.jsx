@@ -5,6 +5,7 @@ import {
   HandHeart, 
   Users, 
   ChatTeardropText, 
+  Image,
   SignOut, 
   X,
   SidebarSimple,
@@ -150,6 +151,10 @@ const Sidebar = ({
               <SidebarItem icon={HandHeart} label="Services & Pricing" id="services" activeTab={activeTab} onTabChange={handleTabChange} isCollapsed={isCollapsed} />
               <SidebarItem icon={Users} label="Client Directory" id="customers" activeTab={activeTab} onTabChange={handleTabChange} isCollapsed={isCollapsed} />
               <SidebarItem icon={ChatTeardropText} label="Client Messages" id="messages" activeTab={activeTab} onTabChange={handleTabChange} isCollapsed={isCollapsed} />
+            </SidebarSection>
+
+            <SidebarSection title="Storefront & Branding" isCollapsed={isCollapsed}>
+              <SidebarItem icon={Image} label="Shop Banner" id="banner" activeTab={activeTab} onTabChange={handleTabChange} isCollapsed={isCollapsed} />
             </SidebarSection>
           </div>
         </div>

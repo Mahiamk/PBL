@@ -13,6 +13,7 @@ import {
   Receipt, 
   Users, 
   ChatTeardropText, 
+  Image,
   SignOut, 
   X,
   SidebarSimple,
@@ -171,6 +172,10 @@ const Sidebar = ({
               <SidebarItem icon={Receipt} label="Orders & Tailoring Jobs" id="orders" activeTab={activeTab} onTabChange={handleTabChange} isCollapsed={isCollapsed} />
               <SidebarItem icon={Users} label="Client Profiles" id="customers" activeTab={activeTab} onTabChange={handleTabChange} isCollapsed={isCollapsed} />
               <SidebarItem icon={ChatTeardropText} label="Messages" id="messages" activeTab={activeTab} onTabChange={handleTabChange} isCollapsed={isCollapsed} />
+            </SidebarSection>
+
+            <SidebarSection title="Storefront & Branding" isCollapsed={isCollapsed}>
+              <SidebarItem icon={Image} label="Shop Banner" id="banner" activeTab={activeTab} onTabChange={handleTabChange} isCollapsed={isCollapsed} />
             </SidebarSection>
           </div>
         </div>
