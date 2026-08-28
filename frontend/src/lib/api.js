@@ -154,6 +154,27 @@ export const fetchStoreDetail = async (storeId) => {
   return response.data;
 };
 
+export const updateStoreBanner = async (storeId, bannerData) => {
+  if (bannerData instanceof FormData) {
+    const response = await API.post(`/api/stores/${storeId}/banner`, bannerData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+  const response = await API.post(`/api/stores/${storeId}/banner`, bannerData);
+  return response.data;
+};
+
+export const deleteStoreBanner = async (storeId) => {
+  const response = await API.delete(`/api/stores/${storeId}/banner`);
+  return response.data;
+};
+
+export const updateStore = async (storeId, updateData) => {
+  const response = await API.put(`/api/stores/${storeId}`, updateData);
+  return response.data;
+};
+
 export const fetchProducts = async (storeId = null) => {
   const url = storeId ? `/api/products?store_id=${storeId}` : '/api/products';
   const response = await API.get(url);
