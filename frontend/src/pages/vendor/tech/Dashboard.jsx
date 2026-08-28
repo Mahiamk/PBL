@@ -17,6 +17,7 @@ import FeaturedProductManager from './FeaturedProduct';
 import OrderManager from '../../../components/vendor/management/OrderManager';
 import CustomerManager from '../../../components/vendor/management/CustomerManager';
 import MessageManager from '../../../components/vendor/management/MessageManager';
+import StoreBannerManager from '../../../components/vendor/management/StoreBannerManager';
 import D3AreaTrendChart from '../../../components/charts/D3AreaTrendChart';
 import D3DonutBreakdownChart from '../../../components/charts/D3DonutBreakdownChart';
 import D3BarComparisonChart from '../../../components/charts/D3BarComparisonChart';
@@ -119,6 +120,16 @@ const TechDashboard = () => {
       );
       case 'customers': return <CustomerManager customers={data?.customers || []} />;
       case 'messages': return <MessageManager selectedId={selectedId} />;
+      case 'banner':
+      case 'store-banner':
+        return (
+          <StoreBannerManager 
+            store={data?.store_info} 
+            onBannerUpdated={(updated) => {
+              setData(prev => prev ? { ...prev, store_info: { ...prev.store_info, ...updated } } : prev);
+            }} 
+          />
+        );
       case 'dashboard': // Explicit case for dashboard
       default: {
         const realRevenueTrend = computeRealRevenueTrend(data?.recent_orders || [], 7);

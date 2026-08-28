@@ -8,6 +8,7 @@ import AppointmentManager from '../tailor/AppointmentManager';
 import ServiceManager from '../../../components/vendor/management/ServiceManager';
 import CustomerManager from '../../../components/vendor/management/CustomerManager';
 import MessageManager from '../../../components/vendor/management/MessageManager';
+import StoreBannerManager from '../../../components/vendor/management/StoreBannerManager';
 import D3AreaTrendChart from '../../../components/charts/D3AreaTrendChart';
 import D3DonutBreakdownChart from '../../../components/charts/D3DonutBreakdownChart';
 import D3StatSparkline from '../../../components/charts/D3StatSparkline';
@@ -144,6 +145,17 @@ const MassageDashboard = () => {
           <div className="space-y-6">
             <MessageManager selectedId={selectedId} />
           </div>
+        );
+
+      case 'banner':
+      case 'store-banner':
+        return (
+          <StoreBannerManager 
+            store={data?.store_info} 
+            onBannerUpdated={(updated) => {
+              setData(prev => prev ? { ...prev, store_info: { ...prev.store_info, ...updated } } : prev);
+            }} 
+          />
         );
 
       case 'dashboard':

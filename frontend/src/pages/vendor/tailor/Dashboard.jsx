@@ -19,6 +19,7 @@ import FeaturedProductManager from '../../../components/vendor/management/Featur
 import OrderManager from '../../../components/vendor/management/OrderManager';
 import CustomerManager from '../../../components/vendor/management/CustomerManager';
 import MessageManager from '../../../components/vendor/management/MessageManager';
+import StoreBannerManager from '../../../components/vendor/management/StoreBannerManager';
 import AppointmentManager from './AppointmentManager';
 import { Package, Scissors } from 'lucide-react';
 import D3AreaTrendChart from '../../../components/charts/D3AreaTrendChart';
@@ -176,6 +177,16 @@ const TailorDashboard = () => {
           </div>
         </div>
       );
+      case 'banner':
+      case 'store-banner':
+        return (
+          <StoreBannerManager 
+            store={data?.store_info} 
+            onBannerUpdated={(updated) => {
+              setData(prev => prev ? { ...prev, store_info: { ...prev.store_info, ...updated } } : prev);
+            }} 
+          />
+        );
       case 'dashboard':
       default: {
         const realRevenueTrend = computeRealRevenueTrend(data?.recent_orders || [], 7);

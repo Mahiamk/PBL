@@ -9,6 +9,7 @@ import CategoryManager from '../../../components/vendor/management/CategoryManag
 import OrderManager from '../../../components/vendor/management/OrderManager';
 import CustomerManager from '../../../components/vendor/management/CustomerManager';
 import MessageManager from '../../../components/vendor/management/MessageManager';
+import StoreBannerManager from '../../../components/vendor/management/StoreBannerManager';
 import { useSearchParams } from 'react-router-dom';
 import D3AreaTrendChart from '../../../components/charts/D3AreaTrendChart';
 import D3DonutBreakdownChart from '../../../components/charts/D3DonutBreakdownChart';
@@ -113,6 +114,16 @@ const ClothesShopDashboard = () => {
       case 'orders': return <OrderManager orders={data.recent_orders} onOrderUpdate={() => loadData(true)} selectedId={selectedId} />;
       case 'customers': return <CustomerManager customers={data?.customers || []} />;
       case 'messages': return <MessageManager selectedId={selectedId} />;
+      case 'banner':
+      case 'store-banner':
+        return (
+          <StoreBannerManager 
+            store={data?.store_info} 
+            onBannerUpdated={(updated) => {
+              setData(prev => prev ? { ...prev, store_info: { ...prev.store_info, ...updated } } : prev);
+            }} 
+          />
+        );
       default: {
         const realRevenueTrend = computeRealRevenueTrend(data?.recent_orders || [], 7);
         const realVolumeTrend = computeRealVolumeTrend(data?.recent_orders || [], 'order_date', 7);

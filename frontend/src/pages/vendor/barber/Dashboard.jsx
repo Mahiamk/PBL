@@ -8,6 +8,7 @@ import CustomerManager from '../../../components/vendor/management/CustomerManag
 import MessageManager from '../../../components/vendor/management/MessageManager';
 import AppointmentManager from '../tailor/AppointmentManager';
 import ServiceManager from '../../../components/vendor/management/ServiceManager';
+import StoreBannerManager from '../../../components/vendor/management/StoreBannerManager';
 import D3AreaTrendChart from '../../../components/charts/D3AreaTrendChart';
 import D3BarComparisonChart from '../../../components/charts/D3BarComparisonChart';
 import D3StatSparkline from '../../../components/charts/D3StatSparkline';
@@ -19,9 +20,10 @@ import {
   Clock, 
   CheckCircle, 
   Star, 
-  TrendUp,
-  Sparkle,
-  Plus
+  TrendUp, 
+  Sparkle, 
+  Plus,
+  Image as ImageIcon
 } from '@phosphor-icons/react';
 
 // Translation Dictionary
@@ -239,6 +241,17 @@ const BarberDashboard = () => {
       case 'messages': 
         return <MessageManager selectedId={selectedId} />;
       
+      case 'banner':
+      case 'store-banner':
+        return (
+          <StoreBannerManager 
+            store={data?.store_info} 
+            onBannerUpdated={(updated) => {
+              setData(prev => prev ? { ...prev, store_info: { ...prev.store_info, ...updated } } : prev);
+            }} 
+          />
+        );
+
       default: return (
         <div className="space-y-6 animate-fade-in">
           {/* Header Banner */}
@@ -253,6 +266,14 @@ const BarberDashboard = () => {
             </div>
 
             <div className="flex items-center space-x-2 shrink-0">
+              <button 
+                onClick={() => setActiveTab('banner')}
+                className="px-4 py-2.5 bg-white/15 hover:bg-white/20 text-white text-xs font-bold rounded-2xl transition-all backdrop-blur-md flex items-center space-x-1.5"
+                title="Change or remove shop storefront banner"
+              >
+                <ImageIcon size={16} weight="duotone" />
+                <span>Shop Banner</span>
+              </button>
               <button 
                 onClick={() => setActiveTab('services')}
                 className="px-4 py-2.5 bg-white text-[#1d1d1f] hover:bg-[#f5f5f7] text-xs font-bold rounded-2xl transition-all shadow-xs flex items-center space-x-1.5"
