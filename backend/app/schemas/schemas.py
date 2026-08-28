@@ -71,6 +71,18 @@ class Store(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class StoreUpdate(BaseModel):
+    store_name: Optional[str] = None
+    store_type: Optional[str] = None
+    image_url: Optional[str] = None
+    working_hours: Optional[str] = None
+    location: Optional[str] = None
+    phone: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 class ProductBase(BaseModel):
     product_name: str
     product_desc: Optional[str] = None
