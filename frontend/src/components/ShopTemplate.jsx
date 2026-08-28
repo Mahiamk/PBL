@@ -6,6 +6,7 @@ import {
   fetchServices,
   createAppointment,
   getBackendBaseUrl,
+  getImageUrl,
 } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -321,8 +322,26 @@ const ShopTemplate = ({
     );
   });
 
+  const bannerImage = storeDetail?.image_url || propBannerImage;
+
   return (
     <div className="bg-[#f5f5f7] min-h-screen pb-16">
+      {/* Storefront Hero Banner */}
+      {bannerImage && (
+        <div className="w-full h-44 sm:h-60 md:h-72 overflow-hidden bg-[#1d1d1f] relative border-b border-[#e8e8ed]">
+          <img
+            src={getImageUrl(bannerImage)}
+            alt={storeName}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = '/assets/banner-one.png';
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20" />
+        </div>
+      )}
+
       {/* Hero Header */}
       <div className="bg-white border-b border-[#e8e8ed]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
